@@ -216,3 +216,9 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+
+# Local Data / Research Documents
+data/
+local/
+rag_test_files/
