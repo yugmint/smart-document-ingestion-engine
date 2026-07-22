@@ -1,0 +1,9 @@
+langchain-core>=0.3
+langchain-community>=0.3
+langchain-huggingface>=0.1
+sentence-transformers>=3.0
+faiss-cpu>=1.8
+pypdf>=4.0
+
+# Dev / test only
+pytest>=8.0
