@@ -1,39 +1,49 @@
 # 06 — Release Notes
 
-No git tags exist yet (see `04-contributing.md`'s Git hygiene section), so this is organized
-by commit rather than by version tag. Once `v1.0.0` is tagged, switch this
-file to a standard [Keep a Changelog](https://keepachangelog.com/) format
-anchored on tags instead.
+[Keep a Changelog](https://keepachangelog.com/)-style, anchored on tags.
+`v1.0.0` is the first tag this repo has — everything before it is
+reconstructed from `git log`, without version numbers of its own (it was
+never tagged at the time).
 
-## Unreleased (working tree, not yet committed)
+## [1.0.0] — 2026-07-24
 
-Added while scoping standalone-service deployment for this pipeline
-alongside the separate `RAG_Project_1` API:
+First tagged version. Core pipeline logic (`e3dbd6d`, 2026-07-22) had
+already been solid for two days; this tag reflects standalone-service
+deployment, git hygiene fixes, and full documentation landing on top of
+it.
 
-- `src/ingestion/api.py` — FastAPI service (`GET /health`, `POST /ingest`)
-  wrapping the existing `IngestionPipeline`, for deployment as a
-  long-running service rather than a one-shot CLI container.
+**Added:**
+- Standalone FastAPI service (`src/ingestion/api.py`): `GET /health`,
+  `POST /ingest` (multipart upload, runs the existing `IngestionPipeline`)
+  — behind `X-API-Key` auth (`INGESTION_API_KEY`). Deployable alongside
+  `RAG_Project_1`'s own API over a shared FAISS volume
+  (`docker-compose.yml`). (`1ca2667`)
+- `src/utils/auth.py` — added specifically because an unauthenticated
+  `/ingest` would let anyone poison the index the sibling RAG API's own
+  auth was meant to protect. (`1ca2667`)
 - `Dockerfile.api` — separate image for the API, alongside the existing
-  batch-mode `Dockerfile` (unchanged).
-- `DOCUMENTATION.md` — full architecture/module reference.
-- `docs/` — this directory.
-- `requirements.txt` — added `fastapi`, `uvicorn`, `python-multipart`.
+  batch-mode `Dockerfile` (unchanged). (`1ca2667`)
+- Full documentation set: `DOCUMENTATION.md` + numbered `docs/`.
+  (`6706b3a`)
 
-**Prod-readiness pass on the sibling `RAG_Project_1` (2026-07-24)** touched
-this repo too, since the two share a vector store:
+**Fixed:**
+- 39 `.pyc` files that were wrongly git-tracked despite `.gitignore`
+  covering `__pycache__/` since the first commit. (`d4eb46a`)
+- `tests/fixtures/sample_research_paper.pdf` — the e2e test's fixture was
+  never actually committed (a fresh clone would fail
+  `test_load_through_metadata_on_real_pdf` with a missing-file error);
+  now tracked, along with two related path-string test fixes.
+  (`a01b0bc`)
 
-- `src/utils/auth.py` (new) — `POST /ingest` now requires an `X-API-Key`
-  header matching `INGESTION_API_KEY` (no-op if that env var is unset, with
-  a startup warning). Added specifically because an unauthenticated
-  `/ingest` would let anyone poison the index the RAG API's own new auth
-  was meant to protect. See `05-roadmap.md`.
-- Used directly, for real, to rebuild `RAG_Project_1`'s production index
-  after discovering its existing "newer" index had the exact packing/
-  metadata bugs described in `PATCH_NOTES.md` — see `RAG_Project_1/DOCUMENTATION.md`
-  §8 for the full story. Good validation that this pipeline's fixes hold up
-  against a real 136-page document (produced 314 well-formed chunks,
-  85–841 chars, correctly separated `document_type`/`file_extension`
-  metadata).
+**Validated:**
+- Used directly, for real, to rebuild the sibling `RAG_Project_1`'s
+  production index after discovering its existing "newer" index had the
+  exact packing/metadata bugs this pipeline was built to fix — see
+  `RAG_Project_1/DOCUMENTATION.md` §8. Produced 314 well-formed chunks
+  from a real 136-page document, 85–841 chars each, correctly separated
+  `document_type`/`file_extension` metadata. Good real-world confirmation
+  that the fixes documented in `PATCH_NOTES.md` hold up outside the test
+  suite.
 
 ## 2026-07-22 — Pipeline hardening & standalone packaging
 

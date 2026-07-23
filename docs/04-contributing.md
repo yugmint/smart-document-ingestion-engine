@@ -39,10 +39,11 @@ Concrete lessons from this repo's own history — not abstract advice:
   history. If any were sensitive/copyrighted and this remote is public,
   that needs a history rewrite (`git filter-repo`/BFG), not just a
   follow-up commit.
-- **No tags exist**, despite `pyproject.toml` declaring `version = "0.2.0"`.
-  Tag real milestones (`git tag -a v1.0.0 -m "..."`) so "what did v1.0.0
-  actually contain" is answerable later without reconstructing it from
-  memory.
+- **No tags existed**, despite `pyproject.toml` declaring a version number.
+  Fixed 2026-07-24: `v1.0.0` tagged (and `pyproject.toml` bumped to match)
+  now that the core pipeline is genuinely stable — see
+  `05-roadmap.md`/`06-release-notes.md`. Keep tagging version milestones
+  as they happen going forward, not retroactively.
 
 One commit per logical change, a message that says *why* if it's not
 obvious from the diff, and don't let compiled artifacts or real documents
