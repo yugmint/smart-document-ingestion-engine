@@ -27,8 +27,7 @@ from src.ingestion.chunkers.hybrid_chunker import HybridChunker
 from src.ingestion.metadata.generator import MetadataGenerator
 from src.ingestion.config import IngestionConfig
 
-SAMPLE_PDF = Path(__file__).parent / "data" / "sample_research_paper.pdf"
-
+SAMPLE_PDF = Path(__file__).parent / "fixtures" / "sample_research_paper.pdf"
 
 def test_load_through_metadata_on_real_pdf():
     assert SAMPLE_PDF.exists(), f"Missing test fixture: {SAMPLE_PDF}"

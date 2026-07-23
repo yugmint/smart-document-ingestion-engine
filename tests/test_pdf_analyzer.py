@@ -16,7 +16,7 @@ def test_research_paper_gets_structure_strategy():
         "References\n[1] Someone, Somewhere.",
     )
 
-    analysis = analyzer.analyze(docs, r"tests\data\rag_test_files\Computer Vision_2.pdf")
+    analysis = analyzer.analyze(docs, r"local/tests\data\rag_test_files\Computer Vision_2.pdf")
 
     assert analysis.document_type == "research_paper"
     assert analysis.recommendation.strategy == "structure"
@@ -31,7 +31,7 @@ def test_chunk_size_grows_for_long_unbroken_paragraphs():
     huge_paragraph = "word " * 3000
     docs = _pages(huge_paragraph)
 
-    analysis = analyzer.analyze(docs, r"tests\data\rag_test_files\Grandma's Bag of Stories by Sudha Murthy.pdf")
+    analysis = analyzer.analyze(docs, r"local/tests\data\rag_test_files\Grandma's Bag of Stories by Sudha Murthy.pdf")
 
     assert analysis.recommendation.chunk_size > 500
     assert analysis.recommendation.split_large_chunks is True
@@ -43,7 +43,7 @@ def test_chunk_size_shrinks_and_merge_enabled_for_choppy_text():
     # Lots of very short paragraphs (list/dialogue-like).
     docs = _pages("\n\n".join(["Hi."] * 100))
 
-    analysis = analyzer.analyze(docs, r"tests\data\rag_test_files\Factor_Analysis.pdf")
+    analysis = analyzer.analyze(docs, r"local/tests\data\rag_test_files\Factor_Analysis.pdf")
 
     assert analysis.recommendation.chunk_size < 500
     assert analysis.recommendation.merge_small_chunks is True
@@ -53,7 +53,7 @@ def test_confidence_drops_for_very_short_documents():
     analyzer = PDFAnalyzer()
     docs = _pages("Hi.")
 
-    analysis = analyzer.analyze(docs, r"tests\data\rag_test_files\airlock-on-edge_woolf_default_26.pdf")
+    analysis = analyzer.analyze(docs, r"local/tests\data\rag_test_files\airlock-on-edge_woolf_default_26.pdf")
 
     assert analysis.confidence < 0.55
 
@@ -62,7 +62,7 @@ def test_overlap_never_exceeds_half_chunk_size():
     analyzer = PDFAnalyzer()
     docs = _pages("agreement " * 500)
 
-    analysis = analyzer.analyze(docs, r"tests\data\rag_test_files\Yugendra_Ratna_Salunke_IN_[External]_Offer_Letter_Thane.docx.pdf")
+    analysis = analyzer.analyze(docs, r"local/tests\data\rag_test_files\Yugendra_Ratna_Salunke_IN_[External]_Offer_Letter_Thane.docx.pdf")
 
     rec = analysis.recommendation
     assert rec.chunk_overlap <= rec.chunk_size // 2
