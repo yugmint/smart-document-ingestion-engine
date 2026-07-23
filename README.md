@@ -2,6 +2,26 @@
 
 Load -> clean -> analyze -> chunk -> generate metadata -> embed -> index.
 
+## Documentation
+
+This README covers what changed and how to run things day to day. For
+more:
+
+- [`DOCUMENTATION.md`](DOCUMENTATION.md) — full architecture and
+  module-by-module reference.
+- [`docs/`](docs/) — deeper-dive docs: [architecture](docs/01-architecture.md),
+  [ingestion best practices](docs/02-ingestion-best-practices.md),
+  [development guide](docs/03-development-guide.md),
+  [contributing](docs/04-contributing.md), [roadmap](docs/05-roadmap.md),
+  [release notes](docs/06-release-notes.md),
+  [design decisions](docs/07-design-decisions.md).
+- [`PATCH_NOTES.md`](PATCH_NOTES.md) — the specific patch that added e2e
+  tests, the quality-validation scripts, and the chunk-packing fix.
+
+This pipeline pairs with a separate RAG project (`RAG_Project_1`, a sibling
+repo) that reads the FAISS index this pipeline produces — see
+`docs/01-architecture.md` for how the two connect.
+
 ## What changed from the uploaded version
 
 This is a fixed/hardened version of the pipeline you uploaded. Full
@@ -110,6 +130,24 @@ pip install -r requirements.txt
 python -m src.ingestion.pipeline path/to/file.pdf
 ```
 
+### As a standalone API
+
+For deployment alongside `RAG_Project_1`'s own API, sharing one FAISS index
+via a mounted volume (see the top-level `docker-compose.yml`, one directory
+up):
+
+```bash
+INGESTION_API_KEY=your-shared-secret uvicorn src.ingestion.api:app --reload --port 8000
+curl -H "X-API-Key: your-shared-secret" -F "file=@path/to/file.pdf" http://localhost:8000/ingest
+```
+
+`INGESTION_API_KEY` is optional for local dev (omit it and the endpoint runs
+unauthenticated with a warning) but required before exposing this beyond
+localhost — this service shares a vector store with the RAG API, so an
+unauthenticated `/ingest` can poison data the RAG side trusts.
+
+See `docs/01-architecture.md` and `DOCUMENTATION.md` §9 for details.
+
 ## Testing
 
 ```bash
@@ -193,7 +231,19 @@ Things worth specifically looking for in the output:
 
 ## Docker
 
+Batch/CLI (one-shot container per document):
+
 ```bash
 docker build -t ingestion .
-docker run -v $(pwd)/data:/data -v $(pwd)/docs:/docs ingestion /docs/file.pdf
+docker run -v $(pwd)/data:/data -v $(pwd)/input_docs:/input ingestion /input/file.pdf
+```
+
+(`./input_docs` here is wherever you keep the PDFs you're ingesting — kept
+distinct from `./docs/`, which is this repo's own documentation.)
+
+Standalone API (long-running service, uses `Dockerfile.api` instead):
+
+```bash
+docker build -f Dockerfile.api -t ingestion-api .
+docker run -p 8000:8000 -v $(pwd)/data:/data ingestion-api
 ```
