@@ -7,7 +7,9 @@
 > for anyone picking up the codebase cold.
 
 Repo: `smart-document-ingestion-engine` (`github.com/yugmint/smart-document-ingestion-engine`)
-Package: `document-ingestion`, version `0.2.0`, Python `>=3.10`.
+Package: `document-ingestion`, version `0.1.0` (tagged `v0.1.0` — briefly
+tagged `v1.0.0` the same day, then deliberately walked back; see §8 and
+`docs/05-roadmap.md`), Python `>=3.10`.
 
 ---
 
@@ -120,8 +122,8 @@ concrete implementation, and one or more concrete modules do the real work.
 - `pdf_analyzer.py` — the only analyzer. Pipeline:
   1. `_extract_statistics` — page/char/word counts, estimated tokens, avg page/paragraph/sentence/line length.
   2. `_analyze_layout` — regex heuristics for headings, tables, lists, images, equations, code blocks, footnotes, references.
-  3. `_classify_document` — keyword rules over the first 5 pages → `research_paper` / `invoice` / `book` / `legal` / `general`.
-  4. `_recommend_chunking` — looks up a `_BASE_PROFILES` baseline per `document_type`, adjusts `chunk_size` based on `average_paragraph_length`, derives `chunk_overlap` (~20% of chunk_size, bounded), force-enables `split_large_chunks` if paragraphs are still >3x chunk_size. Produces a logged `rationale` string.
+  3. `_classify_document` — keyword rules over the first 5 pages, checked in a **fixed priority order**: `research_paper` requires the literal word `"abstract"` *and* a detected references section; failing that, `invoice` requires `"invoice"`; failing that, `book` fires the instant `"chapter"` or `"table of contents"` appears anywhere in those 5 pages; failing that, `legal` requires `"agreement"`; otherwise `general`. **Real, confirmed misclassification found 2026-07-24:** a dense technical/statistics manual chapter (citations, equations, tables, no literal "Abstract" heading) was classified `book` purely because it opens with "Chapter 420" — the `book` check never gets to consider that it's structurally much closer to a research paper. Full mechanism and downstream impact on chunk sizing: `docs/reports/2026-07-24-academic-document-e2e-test.md` §1 in the sibling `RAG_Project_1` repo; tracked fix (corroborate against `layout.has_equations`/`has_tables` before committing to `book`) in `docs/05-roadmap.md` `v0.2.0`.
+  4. `_recommend_chunking` — looks up a `_BASE_PROFILES` baseline per `document_type`, adjusts `chunk_size` based on `average_paragraph_length`, derives `chunk_overlap` (~20% of chunk_size, bounded), force-enables `split_large_chunks` if paragraphs are still >3x chunk_size. Produces a logged `rationale` string. **Caveat found the same day:** `average_paragraph_length` (computed by splitting on `"\n\n"` across the whole document) can be wildly unreliable for dense multi-column academic PDF layouts that don't reproduce blank-line paragraph breaks through `pypdf` extraction — one real 11-page paper measured 43,767 chars for this statistic. Harmless in that instance (the "paragraph too large" branch still made a reasonable call), but the input signal itself was close to meaningless. See `docs/05-roadmap.md` `v0.2.0`.
   5. `_score_confidence` — 0.05–0.99 heuristic score from classification specificity + corroborating layout signals + document length.
 
 **`chunkers/`**
@@ -300,7 +302,14 @@ Repo: `github.com/yugmint/smart-document-ingestion-engine`.
 | `e07521c` | Extend `.gitignore` for local test-data PDFs. |
 | `e3dbd6d` | **Payload commit** — entire working pipeline added in one commit (94 files): all of `src/ingestion/*`, `src/retrieval/embeddings.py`, `src/utils/logger.py`, `Dockerfile`, `README.md`, `PATCH_NOTES.md`, `pyproject.toml`, `requirements.txt`, `scripts/`, tests + fixtures. The pipeline arrives already fixed — there's no separate "broken" commit in this repo's history; that prior state is documented in `PATCH_NOTES.md`/README but predates this repo (it was an externally uploaded zip). |
 | `6baf90d` | Merge commit reconciling two initial-commit lines. |
-| `8483c98` | **HEAD.** "Stop tracking local test data" — removes large real-world PDFs accidentally committed in `e3dbd6d`. Doesn't touch `tests/fixtures/sample_research_paper.pdf` (used by `test_pipeline_e2e.py`) since that file was never committed in the first place — verified via `git log --all -- tests/fixtures/` (empty) and `git ls-files` (no match). It's untracked and not gitignored either, meaning **a fresh clone of this repo is missing it and `test_pipeline_e2e.py` will fail** until it's added. Worth `git add`-ing deliberately rather than assuming it's already covered. |
+| `8483c98` | "Stop tracking local test data" — removes large real-world PDFs accidentally committed in `e3dbd6d`. At the time, didn't touch `tests/fixtures/sample_research_paper.pdf` (used by `test_pipeline_e2e.py`) since that file was never committed in the first place — see `a01b0bc` below, which fixed this. |
+| `d4eb46a` | Untracked 39 `.pyc` files that had been wrongly git-tracked despite `.gitignore` covering `__pycache__/` since the first commit. |
+| `1ca2667` | **feat:** standalone FastAPI service (`src/ingestion/api.py`) with `X-API-Key` auth — see §9. |
+| `6706b3a` | **docs:** added this `DOCUMENTATION.md` and the numbered `docs/` set. |
+| `a01b0bc` | **fix:** `tests/fixtures/sample_research_paper.pdf` was never actually committed (despite `test_pipeline_e2e.py` referencing it) — a fresh clone would fail that test. Tracked it, plus two related path-string fixes in `test_pdf_analyzer.py`. |
+| `0b77220` | **chore:** added `[project]` version metadata, restructured `docs/05-roadmap.md`/`06-release-notes.md` into version milestones. |
+| `f87aba6` | **HEAD.** **chore:** retagged `v0.1.0` — had briefly tagged `v1.0.0` the same day on the reasoning that the core pipeline was "done," then reconsidered: one document's worth of real-world validation wasn't enough to back a 1.0 claim. See `docs/05-roadmap.md`. |
+| `2cf727e`, `cbb8e0a`, `6aee4c5` | **docs:** findings from real-world validation against two more documents in the sibling `RAG_Project_1` repo — the `book`/`research_paper` misclassification (§2.3 above) and the `average_paragraph_length` reliability issue, including a same-day controlled experiment that ruled the misclassification out as the cause of a set of retrieval failures it was initially suspected of causing. |
 
 The `_pack()` fix (chunk-packing bug — see §2.3 `recursive_chunker.py` and
 `PATCH_NOTES.md`) was found via `scripts/validate_chunks.py` during review: an
@@ -364,3 +373,17 @@ volume, including the `/reload` handshake with the RAG API.
   used throughout instead) — reserved for a possible future API layer.
 - No OCR support — scanned/image-only PDFs raise `EmptyDocumentError` rather
   than being processed.
+- `_classify_document`'s priority-ordered keyword checks can misclassify a
+  dense technical/reference document as `book` instead of `research_paper`
+  purely from the word "chapter" — see §2.3. Real, confirmed, not yet fixed.
+- `average_paragraph_length` can be unreliable for dense multi-column
+  academic PDF layouts — see §2.3.
+- `scripts/validate_chunks.py --dump-samples` crashes on Windows
+  (`UnicodeEncodeError`) if a sampled chunk contains a character outside
+  cp1252 (found via a "χ" in a chi-square formula) — `print()` inherits the
+  console's default encoding. Workaround: set `PYTHONIOENCODING=utf-8`.
+  Tracked as a `v0.1.1` patch fix in `docs/05-roadmap.md`.
+- No rate limiting on `POST /ingest` (§9) — only auth. Since this service
+  shares a vector store with the sibling `RAG_Project_1` API, an
+  unthrottled `/ingest` is a real exposure if this is ever reachable
+  beyond a trusted network.
