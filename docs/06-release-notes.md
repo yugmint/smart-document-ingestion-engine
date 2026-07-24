@@ -10,6 +10,31 @@ never tagged at the time).
 document's worth of real-world validation, several roadmap items still
 open). See `05-roadmap.md`.
 
+## [0.1.3] — 2026-07-25
+
+**Fixed:**
+- `PDFAnalyzer._classify_document` misclassified a structured-abstract
+  medical paper (Hu et al. 2020) as `legal` (confidence 0.85). Two
+  compounding causes, both fixed: the paper's structured abstract
+  (Background/Methods/Results/Conclusions) has no literal word "Abstract",
+  so `research_paper` never fired; it then fell through to a bare
+  substring match on `"agreement"`, which matched inside "...crude
+  **agreement** were all over 85%" (a statistics term). `research_paper`
+  now also recognizes >=3 structured-abstract markers together (still
+  requires `layout.has_references`); `legal` now requires an actual
+  legal-agreement phrase instead of the bare word. Verified against the
+  real PDF (now `research_paper`, 0.90, was `legal`, 0.85). Two new tests.
+
+**Investigated, not shipped:**
+- A related chunk-boundary issue (this paper's front matter has no
+  blank-line paragraph breaks at all, so its title got glued onto the
+  tail of an unrelated address block) was found, root-caused, and a fix
+  was built and verified against the target document — but re-validating
+  against the already-shipped Factor Analysis/EfficientNet indexes
+  surfaced two real regressions (previously-correct answers became
+  wrong), so it was reverted rather than shipped net-negative. Full
+  writeup and lesson learned: `docs/05-roadmap.md` v0.2.0.
+
 ## [0.1.2] — 2026-07-24
 
 **Fixed:**

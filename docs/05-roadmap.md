@@ -135,6 +135,61 @@ its §5).
       `RAG_Project_1`'s generation layer treat these chunks differently
       for identity-type queries. Cross-repo fix: metadata origin here,
       consumption on the `RAG_Project_1` side.
+- [x] **Structured-abstract research papers misclassified, `"agreement"`
+      false-positiving into `legal`** — found 2026-07-25 testing a fourth
+      real document (Hu et al. 2020, a COVID-19 severity study). Two
+      compounding bugs in `_classify_document`: (1) medical/clinical
+      journals often use a structured abstract
+      (Background/Methods/Results/Conclusions) with no literal word
+      "Abstract" anywhere, so the `research_paper` rule never fired; (2)
+      it fell through to the bare-substring `"agreement" in text` check
+      for `legal`, which matched inside "...crude **agreement** were all
+      over 85%" — a statistics term (inter-rater agreement), not a legal
+      one. Document was classified `legal` (confidence 0.85) instead of
+      `research_paper`. Fixed: `research_paper` now also fires on >=3 of
+      {background, objective(s), methods, results, conclusion(s)}
+      appearing together (requires `layout.has_references` too, same as
+      the literal-"abstract" path); `legal` now requires an actual
+      legal-agreement phrase (`"this agreement"`, `"the parties agree"`,
+      etc.) instead of the bare word. Verified against the real PDF (now
+      classifies `research_paper`, confidence 0.90, was `legal`
+      0.85). Two new regression tests in `test_pdf_analyzer.py`.
+- [ ] **Title/author text can still get glued onto a preceding
+      unrelated block when a page has no blank-line paragraph breaks at
+      all** — found and root-caused testing the same document: this
+      paper's front matter (masthead, author list, affiliation,
+      correspondence address) is separated by single `"\n"` only, no
+      `"\n\n"` anywhere, so `RecursiveChunker`'s paragraph-first
+      splitting has nothing to key off, and greedy `_pack()`ing glued
+      the paper's actual title onto the tail of the correspondence
+      block. That in turn confused the cross-encoder reranker enough on
+      `RAG_Project_1`'s side to drop the title/author chunk from the
+      final top-k for a "what is the title" query.
+      **Attempted and reverted 2026-07-25:** built a paragraph-aware
+      version of `_pack` (tracking which fragments came from a
+      force-split paragraph, refusing to glue a new paragraph onto such
+      a remnant) plus a `TextCleaner` rule inserting a paragraph break
+      after email addresses (a reliable "contact block just ended"
+      signal). Fixed the target document's chunk boundary as intended,
+      confirmed via direct chunk inspection — but re-running the full
+      10-question suites against the two *already-validated* indexes
+      (Factor Analysis, EfficientNet — see
+      `RAG_Project_1/docs/reports/2026-07-24-reranking-validation.md`)
+      surfaced two real regressions on EfficientNet (Q5 and Q9, both
+      previously correct, both wrong after the change) traced to the
+      same shared source passage landing outside the retrieved context.
+      Reverted rather than ship a net-negative change; `_pack`/
+      `_split`/`TextCleaner` are back to their pre-2026-07-25 state.
+      **Lesson for whoever picks this up next:** `_pack` is shared
+      across every document type — any change to it needs a full
+      regression pass against Factor Analysis and EfficientNet before
+      shipping, not just validation against the document that motivated
+      the change. Also worth noting: even with the boundary fixed, the
+      cross-encoder reranker *still* ranked the correct title chunk only
+      #12/15 for a "title and authors" query — so this may not be fully
+      fixable on the chunking side alone; see the identity/self-
+      referential question gap already tracked in
+      `RAG_Project_1/docs/reports/2026-07-24-reranking-validation.md` §4.
 
 ## v0.3.0 — Real adaptive chunkers (planned)
 

@@ -66,6 +66,34 @@ _MIN_CHUNK_SIZE = 100
 _MAX_CHUNK_SIZE = 2000
 _MIN_OVERLAP = 20
 
+# Many medical/clinical journals use a structured abstract
+# (Background/Objective/Methods/Results/Conclusions) with no literal word
+# "Abstract" printed anywhere -- found via a real paper (Hu et al. 2020,
+# COVID-19 severity study) that fell through the literal-"abstract" check
+# entirely. Each tuple is one concept; a single incidental word match
+# (e.g. "results" in ordinary prose) shouldn't count as much as several
+# structured-abstract section headers appearing together.
+_STRUCTURED_ABSTRACT_CONCEPTS: tuple[tuple[str, ...], ...] = (
+    ("background",),
+    ("objective", "objectives"),
+    ("methods", "methodology"),
+    ("results",),
+    ("conclusion", "conclusions"),
+)
+_STRUCTURED_ABSTRACT_MIN_HITS = 3
+
+# A bare "agreement" substring matches plenty of non-legal prose -- found
+# via the same paper: "...crude agreement were all over 85%" (a
+# statistics term for inter-rater agreement) misclassified the whole
+# document `legal`. Require an actual legal-agreement phrase instead.
+_LEGAL_PHRASES = (
+    "this agreement",
+    "the parties agree",
+    "in witness whereof",
+    "governing law",
+    "entered into this agreement",
+)
+
 
 class PDFAnalyzer(BaseAnalyzer):
     """
@@ -219,7 +247,19 @@ class PDFAnalyzer(BaseAnalyzer):
 
         text = "\n".join(d.page_content.lower() for d in documents[:5])
 
-        if "abstract" in text and layout.has_references:
+        has_literal_abstract = "abstract" in text
+        structured_abstract_hits = sum(
+            any(keyword in text for keyword in concept)
+            for concept in _STRUCTURED_ABSTRACT_CONCEPTS
+        )
+        looks_like_structured_abstract = (
+            structured_abstract_hits >= _STRUCTURED_ABSTRACT_MIN_HITS
+        )
+
+        if (
+            (has_literal_abstract or looks_like_structured_abstract)
+            and layout.has_references
+        ):
             return "research_paper"
 
         if "invoice" in text:
@@ -237,7 +277,7 @@ class PDFAnalyzer(BaseAnalyzer):
         if ("chapter" in text or "table of contents" in text) and not looks_technical:
             return "book"
 
-        if "agreement" in text:
+        if any(phrase in text for phrase in _LEGAL_PHRASES):
             return "legal"
 
         return "general"
