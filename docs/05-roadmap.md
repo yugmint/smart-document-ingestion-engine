@@ -105,6 +105,32 @@ its §5).
       text extraction produces low-signal, barely-readable chunk content
       today (`pypdf` extracts embedded math as garbled character
       sequences) — confirmed in the same report.
+- [ ] **`average_paragraph_length` is unreliable for some real academic
+      PDF layouts** — found 2026-07-24 testing a third document (a
+      genuine, correctly-classified research paper this time):
+      `_extract_statistics` computed 43,767 chars for this metric on an
+      11-page paper, because dense multi-column academic layouts don't
+      always reproduce blank-line (`"\n\n"`) paragraph breaks through
+      `pypdf` extraction. Harmless in this instance (the downstream
+      "paragraph too large" branch still made a reasonable call), but the
+      input signal itself was close to meaningless — investigate a
+      sentence-based fallback when paragraph count is implausibly low
+      relative to page/word count. See
+      `RAG_Project_1/docs/reports/2026-07-24-efficientnet-research-paper-e2e-test.md` §1.
+- [ ] **Chunk-level section-role metadata** (references/bibliography vs.
+      body text) — same report, §3: a References-section chunk (a dense,
+      unbroken bibliography with no paragraph breaks to split on)
+      contains text formatted exactly like `Authors. Title. Venue, Year.`
+      for *each citation*, which an LLM can mistake for the document's
+      *own* title/authors when asked an identity-type question — a
+      confidently wrong answer, not a safe refusal, the first of its kind
+      across three documents tested. `MetadataGenerator` already attaches
+      several per-chunk fields; a `section`/`is_reference_list` hint
+      (even a cheap heuristic — density of citation-like patterns, or
+      proximity to a detected `"References"` heading) would let
+      `RAG_Project_1`'s generation layer treat these chunks differently
+      for identity-type queries. Cross-repo fix: metadata origin here,
+      consumption on the `RAG_Project_1` side.
 
 ## v0.3.0 — Real adaptive chunkers (planned)
 
