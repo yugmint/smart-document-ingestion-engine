@@ -62,9 +62,15 @@ before any signal that distinguishes a technical/reference document from a
 narrative book, so this document was classified `book` (not
 `research_paper`) purely because it opens with "Chapter 420" — even though
 it has citations, equations, and no `research_paper`-disqualifying traits
-other than lacking a literal "Abstract" heading. Full writeup, including
-why this plausibly degraded retrieval quality downstream, in
-`RAG_Project_1/docs/reports/2026-07-24-academic-document-e2e-test.md`.
+other than lacking a literal "Abstract" heading. Initially suspected as the
+cause of two retrieval failures in the same test; a same-day controlled
+follow-up (forcing `research_paper` classification and rerunning the exact
+same questions) showed the failures persisted regardless of chunk size, so
+that hypothesis was refuted. The misclassification is still real and worth
+fixing on its own merits (correctness/predictability), just not as a
+retrieval fix. Full writeup:
+`RAG_Project_1/docs/reports/2026-07-24-academic-document-e2e-test.md` (see
+its §5).
 
 ---
 
@@ -87,9 +93,13 @@ why this plausibly degraded retrieval quality downstream, in
 - [ ] Corroborate the `"chapter"` → `book` classification against
       `layout.has_equations`/`has_tables` (both already computed, unused
       for this purpose) before committing to `book` over `research_paper`
-      — see the 2026-07-24 report above for the exact mechanism and why it
-      matters for chunk sizing (`book`'s profile is coarser: chunk_size=800,
-      `split_large_chunks=False`, vs. `research_paper`'s 450/`True`).
+      — see the 2026-07-24 report above for the exact mechanism. Worth
+      doing for classification correctness/predictability; a same-day
+      controlled follow-up in that report (§5) ruled out the chunk-size
+      difference between the two profiles as the cause of that report's
+      retrieval failures, so don't expect this alone to fix retrieval
+      quality — see the reranking/dedup items in `RAG_Project_1`'s
+      roadmap for what actually addresses that.
 - [ ] Equation-aware handling: `layout.has_equations` is detected but
       nothing currently changes behavior based on it. Equation-heavy PDF
       text extraction produces low-signal, barely-readable chunk content
