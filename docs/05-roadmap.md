@@ -1,17 +1,18 @@
 # 05 — Roadmap
 
-Versioned by milestone (semver — `1.MINOR.0` for a meaningful batch of
-work, `1.0.PATCH` for small fixes between them). First tag is `v1.0.0`:
-core pipeline logic is genuinely done — tested, adaptive chunking works
-end to end, quality-validated via `scripts/`, standalone API deployed and
-authenticated. Unlike the sibling `RAG_Project_1` (still actively
-changing, tagged `v0.0.1`), this one earned the 1.0 claim. See
-`06-release-notes.md` for the per-version changelog this file's "Shipped"
-section is summarized from.
+Versioned by milestone, standard semver. **Revised 2026-07-24, same day as
+the first tag:** initially tagged `v1.0.0` on the reasoning that the core
+pipeline was "done." Reconsidered — needs to prove out more (real-world
+usage beyond one document, a few more roadmap items) before earning a 1.0
+claim, so retagged `v0.1.0` instead. Pre-1.0 convention going forward:
+bump MINOR (`0.2.0`, `0.3.0`, ...) for real feature/fix batches, PATCH
+(`0.1.1`) for trivial fixes only, and don't jump to `1.0.0` until that's a
+deliberate decision, not a default. See `06-release-notes.md` for the
+per-version changelog this file's "Shipped" section is summarized from.
 
 ---
 
-## v1.0.0 — Stable core pipeline (2026-07-24)
+## v0.1.0 — Stable core pipeline (2026-07-24)
 
 **Shipped:**
 - Full `load → clean → analyze → chunk → generate metadata → embed → index`
@@ -35,21 +36,27 @@ section is summarized from.
 - Full documentation set: `DOCUMENTATION.md` + numbered `docs/`
   (architecture, ingestion-specific best practices, development guide,
   contributing, roadmap, release notes, design decisions).
+- Real-world validation: used directly to rebuild `RAG_Project_1`'s
+  production index from a 136-page real document, producing 314
+  well-formed chunks — see `RAG_Project_1/DOCUMENTATION.md` §8.
 
-**Known limitations carried into v1.1.0+** (not blockers for calling this
-stable, just not yet done):
+**Known limitations carried forward** (not blockers for calling this a
+stable baseline, just not yet done — and part of why this is `v0.1.0`
+rather than `v1.0.0`):
 - PDF-only — no `.docx`/`.html`/`.txt` loaders yet.
 - `StructureChunker`/`SemanticChunker`/`MarkdownChunker` are documented
   stubs, all delegating to `RecursiveChunker`.
 - No OCR — scanned/image-only PDFs raise `EmptyDocumentError` by design.
 - No rate limiting on `POST /ingest`.
+- Validated against exactly one real document so far — more real-world
+  mileage before a 1.0 claim would be warranted.
 - Real documents were committed then removed in early git history
   (`e3dbd6d` → `8483c98`) — still present in history if the remote is
   public and that matters.
 
 ---
 
-## v1.1.0 — Ingestion coverage (planned)
+## v0.2.0 — Ingestion coverage (planned)
 
 - [ ] Additional loaders beyond PDF: `.docx`, `.html`, `.txt` at minimum.
       `LoaderFactory`/`AnalyzerFactory` are already structured for this —
@@ -57,7 +64,7 @@ stable, just not yet done):
 - [ ] OCR path for scanned/image-only PDFs — a new loader variant, not a
       change to the existing one.
 
-## v1.2.0 — Real adaptive chunkers (planned)
+## v0.3.0 — Real adaptive chunkers (planned)
 
 - [ ] Real `StructureChunker` — heading/section-hierarchy-aware splitting.
 - [ ] Real `SemanticChunker` — embedding-similarity boundary detection.
@@ -65,7 +72,7 @@ stable, just not yet done):
 - [ ] `TextCleaner` improvements noted in its own docstring: header/footer
       removal, hyphenation repair, table cleanup.
 
-## v1.3.0 — Deployment hardening (planned)
+## v0.4.0 — Deployment hardening (planned)
 
 - [ ] Auto-trigger a reload on the RAG API after a successful `/ingest`
       call, instead of requiring a manual `POST /reload` on the other side
@@ -76,6 +83,12 @@ stable, just not yet done):
 - [ ] CI (GitHub Actions): run `pytest tests/ -v` on every push; run the
       `e2e` marker on a schedule or release branches only, since it
       downloads a model.
+
+## v1.0.0 — Stability claim (planned, no fixed scope yet)
+
+Once enough of v0.2.0–v0.4.0 has landed and this has seen real usage
+across more than one document, revisit whether a 1.0 claim is warranted —
+not before.
 
 ## Unscheduled
 

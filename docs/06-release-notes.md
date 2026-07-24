@@ -1,11 +1,16 @@
 # 06 — Release Notes
 
 [Keep a Changelog](https://keepachangelog.com/)-style, anchored on tags.
-`v1.0.0` is the first tag this repo has — everything before it is
+`v0.1.0` is the first tag this repo has — everything before it is
 reconstructed from `git log`, without version numbers of its own (it was
 never tagged at the time).
 
-## [1.0.0] — 2026-07-24
+**Note:** this was briefly tagged `v1.0.0` on 2026-07-24, then retagged
+`v0.1.0` the same day — reconsidered that a 1.0 claim was premature (one
+document's worth of real-world validation, several roadmap items still
+open). See `05-roadmap.md`.
+
+## [0.1.0] — 2026-07-24
 
 First tagged version. Core pipeline logic (`e3dbd6d`, 2026-07-22) had
 already been solid for two days; this tag reflects standalone-service

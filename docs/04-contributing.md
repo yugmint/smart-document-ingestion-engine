@@ -40,10 +40,9 @@ Concrete lessons from this repo's own history — not abstract advice:
   that needs a history rewrite (`git filter-repo`/BFG), not just a
   follow-up commit.
 - **No tags existed**, despite `pyproject.toml` declaring a version number.
-  Fixed 2026-07-24: `v1.0.0` tagged (and `pyproject.toml` bumped to match)
-  now that the core pipeline is genuinely stable — see
-  `05-roadmap.md`/`06-release-notes.md`. Keep tagging version milestones
-  as they happen going forward, not retroactively.
+  Fixed 2026-07-24: `v0.1.0` tagged (and `pyproject.toml` bumped to match)
+  — see `05-roadmap.md`/`06-release-notes.md`. Keep tagging version
+  milestones as they happen going forward, not retroactively.
 
 One commit per logical change, a message that says *why* if it's not
 obvious from the diff, and don't let compiled artifacts or real documents
