@@ -74,14 +74,16 @@ its §5).
 
 ---
 
-## v0.1.1 — Patch fixes (planned)
+## v0.1.1 — Patch fixes
 
-- [ ] `scripts/validate_chunks.py --dump-samples` crashes on Windows with
+- [x] `scripts/validate_chunks.py --dump-samples` crashed on Windows with
       `UnicodeEncodeError` the moment a sampled chunk contains a character
       outside cp1252 (found via a real chunk containing "χ" from a
       chi-square formula) — `print()` inherits the console's default
-      encoding. Fix: force UTF-8 on stdout, or write samples to a file.
-      See the 2026-07-24 report referenced above.
+      encoding. Fixed by reconfiguring `sys.stdout` to UTF-8 with
+      `errors="replace"` at the top of `main()`, so the script no longer
+      depends on `PYTHONIOENCODING` being set manually. See the 2026-07-24
+      report referenced above.
 
 ## v0.2.0 — Ingestion coverage & classification robustness (planned)
 

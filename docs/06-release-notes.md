@@ -10,6 +10,19 @@ never tagged at the time).
 document's worth of real-world validation, several roadmap items still
 open). See `05-roadmap.md`.
 
+## [0.1.1] — 2026-07-24
+
+Patch fix, first version bumped under standard semver rather than the
+project's earlier flat sequence.
+
+**Fixed:**
+- `scripts/validate_chunks.py --dump-samples` crashed on Windows
+  (`UnicodeEncodeError`) the moment a sampled chunk contained a character
+  outside cp1252 (found via a real "χ" from a chi-square formula) —
+  `print()` inherited the console's default encoding. Fixed by
+  reconfiguring `sys.stdout` to UTF-8 with `errors="replace"` at the top
+  of `main()`; no longer depends on `PYTHONIOENCODING` being set manually.
+
 ## [0.1.0] — 2026-07-24
 
 First tagged version. Core pipeline logic (`e3dbd6d`, 2026-07-22) had

@@ -7,9 +7,10 @@
 > for anyone picking up the codebase cold.
 
 Repo: `smart-document-ingestion-engine` (`github.com/yugmint/smart-document-ingestion-engine`)
-Package: `document-ingestion`, version `0.1.0` (tagged `v0.1.0` — briefly
-tagged `v1.0.0` the same day, then deliberately walked back; see §8 and
-`docs/05-roadmap.md`), Python `>=3.10`.
+Package: `document-ingestion`, version `0.1.1` (`v0.1.0` tagged 2026-07-24 —
+briefly tagged `v1.0.0` the same day, then deliberately walked back; see §8
+and `docs/05-roadmap.md`; `0.1.1` is an untagged patch fix on top), Python
+`>=3.10`.
 
 ---
 
@@ -378,11 +379,6 @@ volume, including the `/reload` handshake with the RAG API.
   purely from the word "chapter" — see §2.3. Real, confirmed, not yet fixed.
 - `average_paragraph_length` can be unreliable for dense multi-column
   academic PDF layouts — see §2.3.
-- `scripts/validate_chunks.py --dump-samples` crashes on Windows
-  (`UnicodeEncodeError`) if a sampled chunk contains a character outside
-  cp1252 (found via a "χ" in a chi-square formula) — `print()` inherits the
-  console's default encoding. Workaround: set `PYTHONIOENCODING=utf-8`.
-  Tracked as a `v0.1.1` patch fix in `docs/05-roadmap.md`.
 - No rate limiting on `POST /ingest` (§9) — only auth. Since this service
   shares a vector store with the sibling `RAG_Project_1` API, an
   unthrottled `/ingest` is a real exposure if this is ever reachable

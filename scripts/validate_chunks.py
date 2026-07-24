@@ -145,6 +145,12 @@ def dump_samples(chunks, n):
 
 
 def main():
+    # Windows consoles default stdout to cp1252, which can't encode chunk
+    # text pulled straight from a PDF (e.g. Greek letters in an equation).
+    # Force UTF-8 with a safe fallback instead of crashing mid-report.
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("file_path")
     parser.add_argument(
