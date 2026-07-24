@@ -48,21 +48,53 @@ rather than `v1.0.0`):
   stubs, all delegating to `RecursiveChunker`.
 - No OCR — scanned/image-only PDFs raise `EmptyDocumentError` by design.
 - No rate limiting on `POST /ingest`.
-- Validated against exactly one real document so far — more real-world
-  mileage before a 1.0 claim would be warranted.
 - Real documents were committed then removed in early git history
   (`e3dbd6d` → `8483c98`) — still present in history if the remote is
   public and that matters.
 
+**Real-world validation, round 2 (2026-07-24, same day):** ran a dense,
+citation-and-formula-heavy technical PDF (`Factor_Analysis.pdf`, a
+statistics-software manual chapter) through the pipeline — the first
+structurally different document tested (the first validation used a
+narrative fiction book). Found a precise, explainable misclassification:
+`PDFAnalyzer._classify_document` checks for the literal word `"chapter"`
+before any signal that distinguishes a technical/reference document from a
+narrative book, so this document was classified `book` (not
+`research_paper`) purely because it opens with "Chapter 420" — even though
+it has citations, equations, and no `research_paper`-disqualifying traits
+other than lacking a literal "Abstract" heading. Full writeup, including
+why this plausibly degraded retrieval quality downstream, in
+`RAG_Project_1/docs/reports/2026-07-24-academic-document-e2e-test.md`.
+
 ---
 
-## v0.2.0 — Ingestion coverage (planned)
+## v0.1.1 — Patch fixes (planned)
+
+- [ ] `scripts/validate_chunks.py --dump-samples` crashes on Windows with
+      `UnicodeEncodeError` the moment a sampled chunk contains a character
+      outside cp1252 (found via a real chunk containing "χ" from a
+      chi-square formula) — `print()` inherits the console's default
+      encoding. Fix: force UTF-8 on stdout, or write samples to a file.
+      See the 2026-07-24 report referenced above.
+
+## v0.2.0 — Ingestion coverage & classification robustness (planned)
 
 - [ ] Additional loaders beyond PDF: `.docx`, `.html`, `.txt` at minimum.
       `LoaderFactory`/`AnalyzerFactory` are already structured for this —
       new classes + registrations, not a redesign.
 - [ ] OCR path for scanned/image-only PDFs — a new loader variant, not a
       change to the existing one.
+- [ ] Corroborate the `"chapter"` → `book` classification against
+      `layout.has_equations`/`has_tables` (both already computed, unused
+      for this purpose) before committing to `book` over `research_paper`
+      — see the 2026-07-24 report above for the exact mechanism and why it
+      matters for chunk sizing (`book`'s profile is coarser: chunk_size=800,
+      `split_large_chunks=False`, vs. `research_paper`'s 450/`True`).
+- [ ] Equation-aware handling: `layout.has_equations` is detected but
+      nothing currently changes behavior based on it. Equation-heavy PDF
+      text extraction produces low-signal, barely-readable chunk content
+      today (`pypdf` extracts embedded math as garbled character
+      sequences) — confirmed in the same report.
 
 ## v0.3.0 — Real adaptive chunkers (planned)
 
