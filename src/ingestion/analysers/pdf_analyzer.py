@@ -225,7 +225,16 @@ class PDFAnalyzer(BaseAnalyzer):
         if "invoice" in text:
             return "invoice"
 
-        if "chapter" in text or "table of contents" in text:
+        # "chapter"/"table of contents" alone isn't enough -- a dense
+        # technical/reference document (equations, tables) that happens to
+        # open with "Chapter N" is not the narrative prose "book" is tuned
+        # for (chunk_size=800, split_large_chunks=False). Corroborate
+        # against layout signals already computed for other purposes
+        # before committing to "book"; a false positive here fell through
+        # to a worse-fitting profile than "general" would have. See
+        # docs/05-roadmap.md and the 2026-07-24 academic-document report.
+        looks_technical = layout.has_equations or layout.has_tables
+        if ("chapter" in text or "table of contents" in text) and not looks_technical:
             return "book"
 
         if "agreement" in text:

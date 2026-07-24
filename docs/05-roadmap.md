@@ -92,16 +92,18 @@ its §5).
       new classes + registrations, not a redesign.
 - [ ] OCR path for scanned/image-only PDFs — a new loader variant, not a
       change to the existing one.
-- [ ] Corroborate the `"chapter"` → `book` classification against
-      `layout.has_equations`/`has_tables` (both already computed, unused
-      for this purpose) before committing to `book` over `research_paper`
-      — see the 2026-07-24 report above for the exact mechanism. Worth
-      doing for classification correctness/predictability; a same-day
-      controlled follow-up in that report (§5) ruled out the chunk-size
-      difference between the two profiles as the cause of that report's
-      retrieval failures, so don't expect this alone to fix retrieval
-      quality — see the reranking/dedup items in `RAG_Project_1`'s
-      roadmap for what actually addresses that.
+- [x] Corroborate the `"chapter"` → `book` classification against
+      `layout.has_equations`/`has_tables` before committing to `book` —
+      see the 2026-07-24 report above for the exact mechanism. Fixed in
+      `PDFAnalyzer._classify_document`: `"chapter"`/`"table of contents"`
+      no longer force `book` when the document also looks technical
+      (equations or tables present); such documents now fall through to
+      `general` instead (confirmed against the real `Factor_Analysis.pdf`
+      — now classifies `general`, not `book`). As already established by
+      the same-day controlled follow-up in that report (§5), this is a
+      classification-correctness fix, not a retrieval-quality one — see
+      the reranking/dedup items in `RAG_Project_1`'s roadmap for what
+      actually addresses that.
 - [ ] Equation-aware handling: `layout.has_equations` is detected but
       nothing currently changes behavior based on it. Equation-heavy PDF
       text extraction produces low-signal, barely-readable chunk content

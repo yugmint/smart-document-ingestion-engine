@@ -66,3 +66,34 @@ def test_overlap_never_exceeds_half_chunk_size():
 
     rec = analysis.recommendation
     assert rec.chunk_overlap <= rec.chunk_size // 2
+
+
+def test_chapter_keyword_does_not_force_book_when_document_looks_technical():
+    # Regression test for the misclassification found via a real document
+    # (Factor_Analysis.pdf opens with "Chapter 420" but is a dense
+    # statistics manual, not narrative prose) -- see docs/05-roadmap.md.
+    # Equations (chi-square formula) should stop "chapter" from
+    # short-circuiting straight to "book".
+    analyzer = PDFAnalyzer()
+    docs = _pages(
+        "Chapter 420: Factor Analysis\n\n"
+        "The chi-square statistic is computed as x2 == sum((o - e) ** 2 / e).\n"
+        + ("Body text. " * 50)
+    )
+
+    analysis = analyzer.analyze(docs, r"local/tests\data\rag_test_files\Factor_Analysis.pdf")
+
+    assert analysis.document_type != "book"
+
+
+def test_chapter_keyword_still_classifies_narrative_prose_as_book():
+    # Guards against overcorrecting: a genuine narrative book with no
+    # equations/tables should still be classified "book".
+    analyzer = PDFAnalyzer()
+    docs = _pages(
+        "Chapter One\n\n" + ("Once upon a time, in a quiet village. " * 50)
+    )
+
+    analysis = analyzer.analyze(docs, r"local/tests\data\rag_test_files\Grandma's Bag of Stories by Sudha Murthy.pdf")
+
+    assert analysis.document_type == "book"

@@ -7,9 +7,9 @@
 > for anyone picking up the codebase cold.
 
 Repo: `smart-document-ingestion-engine` (`github.com/yugmint/smart-document-ingestion-engine`)
-Package: `document-ingestion`, version `0.1.1` (`v0.1.0` tagged 2026-07-24 —
+Package: `document-ingestion`, version `0.1.2` (`v0.1.0` tagged 2026-07-24 —
 briefly tagged `v1.0.0` the same day, then deliberately walked back; see §8
-and `docs/05-roadmap.md`; `0.1.1` is an untagged patch fix on top), Python
+and `docs/05-roadmap.md`; `0.1.1`/`0.1.2` are patch fixes on top), Python
 `>=3.10`.
 
 ---
@@ -123,7 +123,7 @@ concrete implementation, and one or more concrete modules do the real work.
 - `pdf_analyzer.py` — the only analyzer. Pipeline:
   1. `_extract_statistics` — page/char/word counts, estimated tokens, avg page/paragraph/sentence/line length.
   2. `_analyze_layout` — regex heuristics for headings, tables, lists, images, equations, code blocks, footnotes, references.
-  3. `_classify_document` — keyword rules over the first 5 pages, checked in a **fixed priority order**: `research_paper` requires the literal word `"abstract"` *and* a detected references section; failing that, `invoice` requires `"invoice"`; failing that, `book` fires the instant `"chapter"` or `"table of contents"` appears anywhere in those 5 pages; failing that, `legal` requires `"agreement"`; otherwise `general`. **Real, confirmed misclassification found 2026-07-24:** a dense technical/statistics manual chapter (citations, equations, tables, no literal "Abstract" heading) was classified `book` purely because it opens with "Chapter 420" — the `book` check never gets to consider that it's structurally much closer to a research paper. Full mechanism and downstream impact on chunk sizing: `docs/reports/2026-07-24-academic-document-e2e-test.md` §1 in the sibling `RAG_Project_1` repo; tracked fix (corroborate against `layout.has_equations`/`has_tables` before committing to `book`) in `docs/05-roadmap.md` `v0.2.0`.
+  3. `_classify_document` — keyword rules over the first 5 pages, checked in a **fixed priority order**: `research_paper` requires the literal word `"abstract"` *and* a detected references section; failing that, `invoice` requires `"invoice"`; failing that, `book` fires when `"chapter"` or `"table of contents"` appears *and* the document doesn't otherwise look technical (`layout.has_equations`/`has_tables` both false); failing that, `legal` requires `"agreement"`; otherwise `general`. **Fixed 2026-07-24:** originally `book` fired the instant `"chapter"` appeared anywhere in those 5 pages, with no corroboration — a dense technical/statistics manual chapter (citations, equations, tables, no literal "Abstract" heading) was misclassified `book` purely because it opens with "Chapter 420", landing it the wrong chunking profile (`chunk_size=800`, `split_large_chunks=False`, tuned for narrative prose). Now corroborates against `layout.has_equations`/`has_tables` before committing to `book`; the same real document now classifies `general` instead. Full original mechanism: `docs/reports/2026-07-24-academic-document-e2e-test.md` §1 in the sibling `RAG_Project_1` repo. As already established by that report's §5 controlled experiment, this was a classification-correctness fix, not a retrieval-quality one — see `RAG_Project_1`'s reranking work for that.
   4. `_recommend_chunking` — looks up a `_BASE_PROFILES` baseline per `document_type`, adjusts `chunk_size` based on `average_paragraph_length`, derives `chunk_overlap` (~20% of chunk_size, bounded), force-enables `split_large_chunks` if paragraphs are still >3x chunk_size. Produces a logged `rationale` string. **Caveat found the same day:** `average_paragraph_length` (computed by splitting on `"\n\n"` across the whole document) can be wildly unreliable for dense multi-column academic PDF layouts that don't reproduce blank-line paragraph breaks through `pypdf` extraction — one real 11-page paper measured 43,767 chars for this statistic. Harmless in that instance (the "paragraph too large" branch still made a reasonable call), but the input signal itself was close to meaningless. See `docs/05-roadmap.md` `v0.2.0`.
   5. `_score_confidence` — 0.05–0.99 heuristic score from classification specificity + corroborating layout signals + document length.
 
@@ -374,9 +374,6 @@ volume, including the `/reload` handshake with the RAG API.
   used throughout instead) — reserved for a possible future API layer.
 - No OCR support — scanned/image-only PDFs raise `EmptyDocumentError` rather
   than being processed.
-- `_classify_document`'s priority-ordered keyword checks can misclassify a
-  dense technical/reference document as `book` instead of `research_paper`
-  purely from the word "chapter" — see §2.3. Real, confirmed, not yet fixed.
 - `average_paragraph_length` can be unreliable for dense multi-column
   academic PDF layouts — see §2.3.
 - No rate limiting on `POST /ingest` (§9) — only auth. Since this service

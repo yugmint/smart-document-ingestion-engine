@@ -10,6 +10,24 @@ never tagged at the time).
 document's worth of real-world validation, several roadmap items still
 open). See `05-roadmap.md`.
 
+## [0.1.2] — 2026-07-24
+
+**Fixed:**
+- `PDFAnalyzer._classify_document`'s `"chapter"` → `book` rule fired on
+  the keyword alone, with no corroboration — a dense technical/reference
+  document (equations, tables, citations) that happens to open with
+  "Chapter N" got the narrative-prose `book` chunking profile
+  (`chunk_size=800`, `split_large_chunks=False`) instead of something
+  closer-fitting. Now requires the document to *not* also look technical
+  (`layout.has_equations`/`has_tables` both false) before committing to
+  `book`; otherwise falls through toward `general`. Verified against the
+  real `Factor_Analysis.pdf` that surfaced this — now classifies
+  `general`, previously `book`. Classification-correctness fix only; a
+  same-day controlled experiment (2026-07-24 academic-document report,
+  §5) already ruled this out as the cause of that report's retrieval
+  failures, which reranking (in the sibling `RAG_Project_1`) fixed
+  instead.
+
 ## [0.1.1] — 2026-07-24
 
 Patch fix, first version bumped under standard semver rather than the
