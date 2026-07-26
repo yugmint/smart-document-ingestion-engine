@@ -10,6 +10,18 @@ never tagged at the time).
 document's worth of real-world validation, several roadmap items still
 open). See `05-roadmap.md`.
 
+## [0.4.1] — 2026-07-26
+
+**Added:**
+- `src/ingestion/api.py` — CORS middleware (`CORSMiddleware`, wide open
+  by default, `CORS_ALLOW_ORIGINS` env override). Without this, browsers
+  silently block every request from any frontend not served from this
+  exact origin -- including the sibling `RAG_Project_1/../frontend/index.html`,
+  opened as a plain `file://` page. Found necessary while wiring up that
+  frontend: this API had no CORS configured at all before this. Verified
+  via a real CORS preflight request with `Origin: null` (what `file://`
+  pages send) against a live server.
+
 ## [0.4.0] — 2026-07-26
 
 Closes out the "Deployment hardening" milestone in one batch, alongside

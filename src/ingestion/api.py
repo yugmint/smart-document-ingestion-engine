@@ -24,6 +24,7 @@ from pathlib import Path
 
 import requests
 from fastapi import Depends, FastAPI, File, Form, HTTPException, Request, UploadFile
+from fastapi.middleware.cors import CORSMiddleware
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
@@ -34,6 +35,23 @@ from src.utils.auth import require_api_key
 from src.utils.logger import logger
 
 app = FastAPI(title="Document Ingestion API", version="0.2.0")
+
+# Without this, browsers silently block every request from any frontend
+# not served from this exact origin -- including a `file://`-opened
+# local HTML page (see ../frontend), which is the primary local-testing
+# client this API needs to support. Defaults wide open, matching that
+# use case; API-key auth (above/below) is the actual access-control
+# layer once APP_ENV is set to anything other than "development" -- CORS
+# alone was never meant to be that. Override via CORS_ALLOW_ORIGINS
+# (comma-separated) for a real deployment that wants to restrict this.
+_cors_origins = os.getenv("CORS_ALLOW_ORIGINS", "*")
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"] if _cors_origins == "*" else _cors_origins.split(","),
+    allow_credentials=False,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # Auto-notifies the sibling RAG API's /reload after a successful /ingest,
 # closing the gap the shared docker-compose.yml explicitly called out as
