@@ -10,6 +10,46 @@ never tagged at the time).
 document's worth of real-world validation, several roadmap items still
 open). See `05-roadmap.md`.
 
+## [0.4.0] — 2026-07-26
+
+Closes out the "Deployment hardening" milestone in one batch, alongside
+the equivalent work in the sibling `RAG_Project_1` `v0.4.0`.
+
+**Fixed:**
+- **`IngestionPipeline.ingest()` silently discarded every
+  previously-ingested document on each new call.** `FAISSIndexer.build()`
+  (a fresh `FAISS.from_documents()`) always overwrote the index at the
+  configured path — not "incremental ingestion wasn't supported yet," a
+  real data-loss bug for any multi-document use. `.load()`/`.add()`
+  already existed and worked; wired them in. New default: additive (an
+  existing index gets added to, not replaced). New `replace: bool =
+  False` param (CLI `--replace`, API `replace` form field) for
+  intentionally starting over. Verified with real embeddings: ingesting
+  the same document twice now leaves both ingestions' vectors present.
+  **If you have an existing deployment that called `/ingest` more than
+  once, its index likely only contains the most recent document** —
+  re-ingest everything to recover.
+- `src/utils/auth.py` — auth now fails closed: outside
+  `APP_ENV=development` (the default), a missing `INGESTION_API_KEY` is
+  a startup-time `RuntimeError`, not a warn-and-allow-everything no-op.
+
+**Added:**
+- `src/ingestion/api.py` — per-client (IP) rate limiting via `slowapi`:
+  `/ingest` at 5/minute (stricter than the RAG API's `/query` limit --
+  each call here is ~3s of real CPU-bound embedding work).
+- `/ingest` now auto-notifies the sibling RAG API's `/reload` after a
+  successful ingestion, via `RAG_RELOAD_URL` (opt-in — unset preserves
+  the old manual-call behavior). Best-effort: a failed notification
+  logs a warning, doesn't fail the `/ingest` call. Wired into the
+  shared `docker-compose.yml`.
+- `.github/workflows/tests.yml` — fast suite on every push/PR (no
+  credentials/model download needed); a separate `e2e` job (real
+  embedding model) gated to `main`, release branches, and weekly.
+
+**Validated:** full test suite (28 fast + 3 e2e) re-run after all of
+the above, plus a live integration check against a real running RAG API
+for the auto-reload notification (including the wrong-key failure path).
+
 ## [0.2.0] — 2026-07-26
 
 **Added:**

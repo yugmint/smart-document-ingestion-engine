@@ -77,3 +77,50 @@ def test_full_pipeline_with_real_embeddings():
     assert len(chunks) > 0
     assert analysis.document_type == "research_paper"
     assert "ingestion_report" in analysis.metadata
+
+
+@pytest.mark.e2e
+def test_ingest_accumulates_into_existing_index_by_default(tmp_path, monkeypatch):
+    # Regression test: pipeline.ingest() used to always rebuild the index
+    # from scratch, silently discarding every previously-ingested
+    # document on each new /ingest call. See docs/05-roadmap.md.
+    pytest.importorskip("sentence_transformers")
+
+    from src.ingestion.pipeline import IngestionPipeline
+    from langchain_community.vectorstores import FAISS
+
+    monkeypatch.setenv("INGESTION_INDEX_PATH", str(tmp_path / "index"))
+    pipeline = IngestionPipeline()
+
+    chunks_first, _ = pipeline.ingest(str(SAMPLE_PDF))
+    first_index = FAISS.load_local(
+        str(tmp_path / "index"), pipeline.embeddings, allow_dangerous_deserialization=True
+    )
+    assert first_index.index.ntotal == len(chunks_first)
+
+    chunks_second, _ = pipeline.ingest(str(SAMPLE_PDF))
+    second_index = FAISS.load_local(
+        str(tmp_path / "index"), pipeline.embeddings, allow_dangerous_deserialization=True
+    )
+    # Both ingestions' vectors should be present -- not just the second's.
+    assert second_index.index.ntotal == len(chunks_first) + len(chunks_second)
+
+
+@pytest.mark.e2e
+def test_ingest_replace_true_starts_over(tmp_path, monkeypatch):
+    pytest.importorskip("sentence_transformers")
+
+    from src.ingestion.pipeline import IngestionPipeline
+    from langchain_community.vectorstores import FAISS
+
+    monkeypatch.setenv("INGESTION_INDEX_PATH", str(tmp_path / "index"))
+    pipeline = IngestionPipeline()
+
+    pipeline.ingest(str(SAMPLE_PDF))
+    chunks_second, _ = pipeline.ingest(str(SAMPLE_PDF), replace=True)
+
+    index = FAISS.load_local(
+        str(tmp_path / "index"), pipeline.embeddings, allow_dangerous_deserialization=True
+    )
+    # replace=True should leave only the second ingestion's vectors.
+    assert index.index.ntotal == len(chunks_second)

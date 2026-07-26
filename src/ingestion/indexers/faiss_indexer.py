@@ -41,6 +41,10 @@ class FAISSIndexer:
 
         vectorstore.save_local(str(output_dir))
 
+    def exists(self, path: str) -> bool:
+        """Whether a previously saved index is present at `path`."""
+        return (Path(path) / "index.faiss").exists()
+
     def load(self, path: str, embeddings):
         """
         Load a previously saved index, e.g. to add new documents to

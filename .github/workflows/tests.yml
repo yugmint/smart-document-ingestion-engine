@@ -1,0 +1,59 @@
+name: Tests
+
+on:
+  push:
+  pull_request:
+  schedule:
+    # Weekly, catches drift in the e2e job (real model download/behavior)
+    # between deliberate runs -- see that job's own comment for why it
+    # isn't on every push.
+    - cron: "0 6 * * 1"
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run fast test suite
+        # e2e-marked tests excluded by default (see pyproject.toml's
+        # addopts) -- this tier needs no model download and no
+        # credentials, verified locally with env vars cleared before
+        # adding this workflow.
+        run: pytest -v
+
+  e2e:
+    runs-on: ubuntu-latest
+    # Not on every push -- test_full_pipeline_with_real_embeddings and
+    # the accumulation tests (test_ingest_accumulates_into_existing_index_by_default,
+    # test_ingest_replace_true_starts_over) download a real
+    # sentence-transformers model, meaningfully slower than the fast
+    # tier. Runs on release branches and weekly on main, not on every
+    # feature-branch push.
+    if: >
+      github.ref == 'refs/heads/main' ||
+      startsWith(github.ref, 'refs/heads/release/') ||
+      github.event_name == 'schedule'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run e2e test suite (downloads a real embedding model)
+        run: pytest -v -m e2e

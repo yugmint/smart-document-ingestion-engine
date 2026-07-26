@@ -17,11 +17,16 @@ call inside an `async def` would stall the event loop for every other
 request. FastAPI runs sync path operations in a threadpool automatically.
 """
 
+import os
 import shutil
 import tempfile
 from pathlib import Path
 
-from fastapi import Depends, FastAPI, File, HTTPException, UploadFile
+import requests
+from fastapi import Depends, FastAPI, File, Form, HTTPException, Request, UploadFile
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.util import get_remote_address
 
 from src.ingestion.exceptions import IngestionError
 from src.ingestion.pipeline import IngestionPipeline
@@ -29,6 +34,29 @@ from src.utils.auth import require_api_key
 from src.utils.logger import logger
 
 app = FastAPI(title="Document Ingestion API", version="0.2.0")
+
+# Auto-notifies the sibling RAG API's /reload after a successful /ingest,
+# closing the gap the shared docker-compose.yml explicitly called out as
+# not built yet ("call /reload yourself"). Opt-in via RAG_RELOAD_URL so
+# standalone/CLI-only use of this service (no RAG API colocated) is
+# unaffected -- unset means today's manual-reload behavior, unchanged.
+# A failed notification does NOT fail the /ingest call: the FAISS write
+# already succeeded by the time this runs, so the ingestion itself was
+# real regardless of whether the sibling service happened to be
+# reachable at that instant. See docs/05-roadmap.md.
+_RAG_RELOAD_URL = os.getenv("RAG_RELOAD_URL")
+_RAG_API_KEY = os.getenv("RAG_API_KEY")
+_RAG_RELOAD_TIMEOUT_SECONDS = 10
+
+# Per-client (by IP) rate limiting -- stricter than the RAG API's /query
+# limit since each call here is a genuinely heavy CPU-bound operation
+# (~3s of embedding work per document, see
+# docs/reports/2026-07-26-performance-and-deployment-readiness.md),
+# not just an LLM call. In-memory storage (the default, no `storage_uri`
+# set) is fine for a single-process deployment. See docs/05-roadmap.md.
+limiter = Limiter(key_func=get_remote_address)
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 # Built once at startup and reused across requests -- avoids reloading
 # the embedding model on every call (mirrors IngestionPipeline's own
@@ -41,8 +69,51 @@ def health():
     return {"status": "ok"}
 
 
+def _notify_rag_reload() -> str:
+    """
+    Best-effort POST to the sibling RAG API's /reload. Returns a short
+    status string for the /ingest response ("skipped", "ok", or
+    "failed: <reason>") rather than raising -- see the module-level
+    comment above for why a failure here doesn't fail the ingest itself.
+    """
+
+    if not _RAG_RELOAD_URL:
+        return "skipped (RAG_RELOAD_URL not set)"
+
+    headers = {"X-API-Key": _RAG_API_KEY} if _RAG_API_KEY else {}
+
+    try:
+        response = requests.post(
+            _RAG_RELOAD_URL, headers=headers, timeout=_RAG_RELOAD_TIMEOUT_SECONDS
+        )
+        response.raise_for_status()
+    except requests.RequestException as exc:
+        logger.warning(
+            f"Ingestion succeeded but notifying the RAG API's /reload "
+            f"failed ({exc}) -- the new index is on disk, but the RAG "
+            f"service won't pick it up until reload is called manually "
+            f"or it restarts."
+        )
+        return f"failed: {exc}"
+
+    logger.info("RAG API notified of the new index (reload succeeded).")
+    return "ok"
+
+
 @app.post("/ingest", dependencies=[Depends(require_api_key)])
-def ingest(file: UploadFile = File(...)):
+@limiter.limit("5/minute")
+def ingest(
+    request: Request,
+    file: UploadFile = File(...),
+    replace: bool = Form(
+        default=False,
+        description=(
+            "Replace the existing index instead of adding to it "
+            "(default: additive/incremental -- new documents accumulate "
+            "into the existing index rather than overwriting it)."
+        ),
+    ),
+):
     if not file.filename:
         raise HTTPException(status_code=400, detail="file must have a filename")
 
@@ -53,12 +124,14 @@ def ingest(file: UploadFile = File(...)):
         tmp_path = Path(tmp.name)
 
     try:
-        chunks, analysis = pipeline.ingest(str(tmp_path))
+        chunks, analysis = pipeline.ingest(str(tmp_path), replace=replace)
     except IngestionError as exc:
         logger.error(f"Ingestion failed for '{file.filename}': {exc}")
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     finally:
         tmp_path.unlink(missing_ok=True)
+
+    reload_status = _notify_rag_reload()
 
     return {
         "source": file.filename,
@@ -67,4 +140,5 @@ def ingest(file: UploadFile = File(...)):
         "chunking_strategy": analysis.recommendation.strategy,
         "chunk_count": len(chunks),
         "report": analysis.metadata.get("ingestion_report"),
+        "rag_reload": reload_status,
     }

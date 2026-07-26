@@ -50,6 +50,7 @@ class IngestionPipeline:
         self,
         file_path: str,
         save_index: bool = True,
+        replace: bool = False,
     ) -> tuple[list[Document], DocumentAnalysis]:
 
         start = perf_counter()
@@ -101,7 +102,19 @@ class IngestionPipeline:
             # Vector Index
             # --------------------------------------------------
 
-            vectorstore = self.indexer.build(chunks, self.embeddings)
+            # Accumulate into any existing index rather than always
+            # rebuilding from scratch -- a plain `.build()` here on every
+            # call silently discarded every previously-ingested document
+            # each time a new one came in (each /ingest replaced the
+            # whole index with just its own chunks). `replace=True` is
+            # the explicit opt-in for the old "start over" behavior.
+            # FAISSIndexer.load()/.add() already existed for this; they
+            # just weren't wired up here. See docs/05-roadmap.md.
+            if save_index and not replace and self.indexer.exists(self.config.index_path):
+                existing_vectorstore = self.indexer.load(self.config.index_path, self.embeddings)
+                vectorstore = self.indexer.add(existing_vectorstore, chunks)
+            else:
+                vectorstore = self.indexer.build(chunks, self.embeddings)
 
             if save_index:
                 self.indexer.save(vectorstore, self.config.index_path)
@@ -182,10 +195,22 @@ def _main() -> None:
         action="store_true",
         help="Build the index in memory without persisting it to disk.",
     )
+    parser.add_argument(
+        "--replace",
+        action="store_true",
+        help=(
+            "Replace any existing index at the configured path instead of "
+            "adding to it (the default is additive/incremental)."
+        ),
+    )
     args = parser.parse_args()
 
     pipeline = IngestionPipeline()
-    pipeline.ingest(args.file_path, save_index=not args.no_save_index)
+    pipeline.ingest(
+        args.file_path,
+        save_index=not args.no_save_index,
+        replace=args.replace,
+    )
 
 
 if __name__ == "__main__":

@@ -216,17 +216,48 @@ its §5).
 - [ ] `TextCleaner` improvements noted in its own docstring: header/footer
       removal, hyphenation repair, table cleanup.
 
-## v0.4.0 — Deployment hardening (planned)
+## v0.4.0 — Deployment hardening
 
-- [ ] Auto-trigger a reload on the RAG API after a successful `/ingest`
-      call, instead of requiring a manual `POST /reload` on the other side
-      (deliberately not built yet — see `docker-compose.yml` comments).
-- [ ] Incremental ingestion via `FAISSIndexer.add()` (already implemented,
-      not yet exposed over the API).
-- [ ] Rate limiting on `POST /ingest`.
-- [ ] CI (GitHub Actions): run `pytest tests/ -v` on every push; run the
-      `e2e` marker on a schedule or release branches only, since it
-      downloads a model.
+- [x] **Auto-trigger a reload on the RAG API — fixed 2026-07-26.**
+      `/ingest` now POSTs to the RAG API's `/reload` after a successful
+      ingestion, via `RAG_RELOAD_URL` (opt-in — unset preserves the old
+      manual-call behavior for standalone/CLI-only use). Best-effort:
+      a failed notification logs a warning and does not fail the
+      `/ingest` call itself (the FAISS write already succeeded by
+      then). Verified against a real running RAG API, including the
+      auth-failure path. Wired into the shared `docker-compose.yml`.
+      5 new tests (`test_ingest_api_reload.py`).
+- [x] **Incremental ingestion — fixed 2026-07-26, and it was more than
+      "not yet exposed."** `IngestionPipeline.ingest()` always called
+      `FAISSIndexer.build()` (a fresh `FAISS.from_documents()`) and
+      overwrote whatever was at the index path — every `/ingest` call
+      silently **discarded every previously-ingested document**, not
+      just "didn't support" incremental updates. `.load()`/`.add()`
+      already existed and worked; they just weren't wired into the
+      pipeline. Now: if an index already exists at the configured path,
+      `ingest()` loads it and adds the new chunks instead of replacing
+      it — the new default is additive. Added an explicit `replace: bool
+      = False` param (CLI: `--replace`; API: a `replace` form field) for
+      the case someone genuinely wants to start over. Verified with real
+      embeddings: ingesting the same document twice into one path now
+      leaves both ingestions' vectors present (not just the second's),
+      and `replace=True` correctly leaves only the second's. 2 new e2e
+      tests. **If you have an existing multi-`/ingest` deployment, its
+      index likely only contains its most recent document** — re-ingest
+      everything once to recover, or rebuild from source documents.
+- [x] **Rate limiting on `POST /ingest` — fixed 2026-07-26.** Per-client
+      (IP) limit via `slowapi`, 5/minute — stricter than the RAG API's
+      `/query` limit since each call here is ~3s of real CPU-bound
+      embedding work. In-memory backend, no Redis needed at this scale.
+      Verified against the real endpoint: exactly 5 requests allowed
+      through per minute, clean 429s after.
+- [x] **CI (GitHub Actions) — added 2026-07-26.**
+      `.github/workflows/tests.yml`: a `test` job runs the fast suite
+      (`pytest -v`, e2e-marked tests excluded by default) on every
+      push/PR, no credentials or model download needed. A separate `e2e`
+      job runs the real-embedding-model tests, gated to `main`, release
+      branches, and a weekly schedule — not every feature-branch push,
+      since it downloads a model.
 
 ## v1.0.0 — Stability claim (planned, no fixed scope yet)
 
