@@ -10,6 +10,36 @@ never tagged at the time).
 document's worth of real-world validation, several roadmap items still
 open). See `05-roadmap.md`.
 
+## [0.2.0] — 2026-07-26
+
+**Added:**
+- `MetadataGenerator` now attaches `is_reference_section` and
+  `is_first_page` per chunk — section-role hints so downstream retrieval
+  can exclude bibliography noise from the candidate pool. Consumed on
+  the `RAG_Project_1` side (`rerank` node).
+
+**Fixed (same-day self-correction):**
+- First attempt detected the reference section via `"References"`
+  heading *position* (that chunk and everything after it). Tested
+  against the real two-column-layout airlock paper and found it wrong:
+  `pypdf` extracts multi-column PDFs in a way that put the heading
+  itself at the very end of the page, *after* several actual citations
+  extracted earlier — a position-based cutoff both missed real
+  citations and wrongly flagged real body content (funding, author
+  contributions) as reference-section. Replaced with a per-chunk
+  citation-density signal (`doi:`/`Medline:` identifier count >= 2),
+  which doesn't depend on any single heading's position and is immune to
+  extraction-order scrambling. Verified against all three documents with
+  real citations. Known limitation: only catches citations carrying a
+  DOI or Medline identifier. Four new tests.
+
+**Validated:** re-ingesting and re-running the full 20-question
+regression suite (Factor Analysis + EfficientNet, both previously
+validated) plus the airlock paper's 6-question suite on the
+`RAG_Project_1` side after this change: 20/20 correct on the two
+10-question suites (up from 16/20 before today's session — see that
+repo's release notes), zero regressions found.
+
 ## [0.1.3] — 2026-07-25
 
 **Fixed:**

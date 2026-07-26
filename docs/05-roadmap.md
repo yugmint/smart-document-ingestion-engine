@@ -121,20 +121,37 @@ its §5).
       sentence-based fallback when paragraph count is implausibly low
       relative to page/word count. See
       `RAG_Project_1/docs/reports/2026-07-24-efficientnet-research-paper-e2e-test.md` §1.
-- [ ] **Chunk-level section-role metadata** (references/bibliography vs.
+- [x] **Chunk-level section-role metadata** (references/bibliography vs.
       body text) — same report, §3: a References-section chunk (a dense,
       unbroken bibliography with no paragraph breaks to split on)
       contains text formatted exactly like `Authors. Title. Venue, Year.`
       for *each citation*, which an LLM can mistake for the document's
       *own* title/authors when asked an identity-type question — a
       confidently wrong answer, not a safe refusal, the first of its kind
-      across three documents tested. `MetadataGenerator` already attaches
-      several per-chunk fields; a `section`/`is_reference_list` hint
-      (even a cheap heuristic — density of citation-like patterns, or
-      proximity to a detected `"References"` heading) would let
-      `RAG_Project_1`'s generation layer treat these chunks differently
-      for identity-type queries. Cross-repo fix: metadata origin here,
-      consumption on the `RAG_Project_1` side.
+      across three documents tested. Fixed 2026-07-26:
+      `MetadataGenerator` now attaches `is_reference_section` and
+      `is_first_page` per chunk. **First attempt (same day) was wrong:**
+      tried a `"References"`-heading-position cutoff (mark that chunk and
+      everything after it) — looked reasonable, but tested against the
+      real two-column-layout airlock paper and got it badly wrong:
+      `pypdf`'s column-order text extraction put the heading itself at
+      the very end of the page, *after* several actual citations
+      extracted earlier, so a position-based cutoff both missed real
+      citations and wrongly flagged real body content (author
+      contributions, funding) that happened to sit after the
+      mis-positioned heading. Replaced with a per-chunk citation-density
+      signal instead (`doi:`/`Medline:` identifier count >= 2) — immune
+      to extraction-order scrambling since it doesn't depend on finding
+      one heading's position at all. Verified against all three
+      documents with real citations (Factor Analysis, EfficientNet,
+      airlock) — correctly flags actual citation-dense chunks in each,
+      including on the airlock paper where the heading-based version
+      failed. **Known limitation:** only catches citations carrying a
+      DOI or Medline identifier — citation styles without either
+      (common in older papers, humanities, some non-medical fields)
+      won't be flagged. Four new tests in `test_metadata_generator.py`.
+      Consumed on the `RAG_Project_1` side: the `rerank` node drops
+      `is_reference_section` candidates before scoring.
 - [x] **Structured-abstract research papers misclassified, `"agreement"`
       false-positiving into `legal`** — found 2026-07-25 testing a fourth
       real document (Hu et al. 2020, a COVID-19 severity study). Two

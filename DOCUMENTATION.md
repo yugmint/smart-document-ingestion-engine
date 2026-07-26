@@ -7,9 +7,10 @@
 > for anyone picking up the codebase cold.
 
 Repo: `smart-document-ingestion-engine` (`github.com/yugmint/smart-document-ingestion-engine`)
-Package: `document-ingestion`, version `0.1.3` (`v0.1.0` tagged 2026-07-24 —
+Package: `document-ingestion`, version `0.2.0` (`v0.1.0` tagged 2026-07-24 —
 briefly tagged `v1.0.0` the same day, then deliberately walked back; see §8
-and `docs/05-roadmap.md`; `0.1.1`-`0.1.3` are patch fixes on top), Python
+and `docs/05-roadmap.md`; `0.1.1`-`0.1.3` were patch fixes, `0.2.0` adds
+chunk-level section-role metadata), Python
 `>=3.10`.
 
 ---
@@ -165,7 +166,7 @@ concrete implementation, and one or more concrete modules do the real work.
   - Each page → one `Document` with `metadata={"page_number": i+1, "source": filename}`.
 
 **`metadata/`**
-- `generator.py` — `MetadataGenerator.generate(chunks, source, analysis=None)`. Per chunk, sets `chunk_id`, `source`, `file_extension` (from the path suffix — kept distinct from the analyzer's semantic `document_type` to avoid the metadata key collision described in `PATCH_NOTES.md`), `character_count`, `word_count`, `token_estimate` (`chars / 4` approximation). If `analysis` is available, also adds `document_type`, `language`, `chunking_strategy`, `analysis_confidence`.
+- `generator.py` — `MetadataGenerator.generate(chunks, source, analysis=None)`. Per chunk, sets `chunk_id`, `source`, `file_extension` (from the path suffix — kept distinct from the analyzer's semantic `document_type` to avoid the metadata key collision described in `PATCH_NOTES.md`), `character_count`, `word_count`, `token_estimate` (`chars / 4` approximation), `is_first_page` (`page_number == 1`), and `is_reference_section` (`doi:`/`Medline:` identifier count >= 2 in the chunk — a citation-density signal, added 2026-07-25/26 after a heading-position-based version got the boundary wrong on a real two-column PDF where `pypdf` extracted the "References" heading out of order; see `docs/05-roadmap.md`). If `analysis` is available, also adds `document_type`, `language`, `chunking_strategy`, `analysis_confidence`.
 
 **`models.py`** (top level) — `DocumentChunk`, `EmbeddingRecord` (framework-agnostic dataclasses, not currently produced by the active pipeline — reserved for a future API/export layer), and `IngestionReport` (the summary returned via `analysis.metadata["ingestion_report"]`).
 
