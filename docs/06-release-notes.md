@@ -10,6 +10,17 @@ never tagged at the time).
 document's worth of real-world validation, several roadmap items still
 open). See `05-roadmap.md`.
 
+## [0.4.5] — 2026-07-28
+
+**Fixed:**
+- `IngestionConfig.vector_store` was silently informational -- setting
+  `INGESTION_VECTOR_STORE=chroma` looked configured but did nothing
+  (pipeline.py always builds `FAISSIndexer()` regardless). Now rejects
+  anything but `"faiss"` loudly at construction time. Scoped down from
+  the roadmap's original "dispatch to a chosen indexer" ask -- a
+  factory for the one implementation that exists is speculative infra;
+  revisit once a second backend is real. 2 new tests.
+
 ## [0.4.4] — 2026-07-28
 
 **Fixed:**

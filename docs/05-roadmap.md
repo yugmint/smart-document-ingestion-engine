@@ -293,6 +293,14 @@ not before.
 - [ ] Decide what to do about the real documents committed and later
       removed in git history — leave as-is if the remote is
       private/acceptable, or rewrite history if not.
-- [ ] Make `IngestionConfig.vector_store` actually dispatch to a chosen
-      indexer (today it's informational-only; FAISS is hard-wired). Only
-      worth doing once a second vector store is actually needed.
+- [x] **`IngestionConfig.vector_store` — fixed 2026-07-28, scoped down
+      from the original ask.** Not built: an `IndexerFactory` dispatching
+      to a chosen backend -- only `FAISSIndexer` exists, so a factory
+      for one implementation is speculative infra, not a real dispatch.
+      Fixed instead: the field was silently informational (pipeline.py
+      always builds `FAISSIndexer()` regardless of its value, so setting
+      `INGESTION_VECTOR_STORE=chroma` looked configured but did nothing).
+      Now `IngestionConfig.__post_init__` rejects anything but `"faiss"`
+      loudly at construction time instead of silently no-op'ing. Revisit
+      with a real factory once a second backend is actually implemented.
+      2 new tests.

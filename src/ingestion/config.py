@@ -125,3 +125,14 @@ class IngestionConfig:
 
         if self.max_document_size_mb <= 0:
             raise ValueError("max_document_size_mb must be a positive integer.")
+
+        # Only FAISSIndexer exists -- pipeline.py always builds one
+        # regardless of this value, so silently accepting e.g. "chroma"
+        # here would look configured but do nothing. Fail loudly instead
+        # of at query time weeks later. Revisit if a second backend is
+        # ever actually implemented.
+        if self.vector_store != "faiss":
+            raise ValueError(
+                f"Unsupported vector_store: '{self.vector_store}' -- only "
+                f"'faiss' is currently implemented."
+            )

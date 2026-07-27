@@ -1,6 +1,6 @@
 [project]
 name = "document-ingestion"
-version = "0.4.4"
+version = "0.4.5"
 description = "Document intelligence ingestion pipeline (load -> clean -> analyze -> chunk -> embed -> index)."
 requires-python = ">=3.10"
 
