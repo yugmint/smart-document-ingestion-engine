@@ -184,15 +184,29 @@ class PDFAnalyzer(BaseAnalyzer):
 
         lines = [line for line in text.splitlines() if line.strip()]
 
+        # Dense multi-column academic layouts often don't reproduce
+        # blank-line paragraph breaks through pypdf extraction -- a real
+        # 11-page paper came back as ONE "paragraph" (the whole
+        # document), driving average_paragraph_length to 43,767 chars
+        # and skewing _recommend_chunking's split/merge decisions.
+        # Sentence boundaries survive column-layout extraction even when
+        # blank lines don't, so when paragraph detection looks
+        # implausible relative to sentence count, estimate from grouped
+        # sentences instead (~4 sentences/paragraph is a rough real-world
+        # average, not a precise model).
+        if len(sentences) >= 8 and len(paragraphs) * 6 < len(sentences):
+            groups = [sentences[i:i + 4] for i in range(0, len(sentences), 4)]
+            avg_paragraph_length = sum(len("".join(g)) for g in groups) / len(groups)
+        else:
+            avg_paragraph_length = sum(len(p) for p in paragraphs) / max(len(paragraphs), 1)
+
         return DocumentStatistics(
             page_count=pages,
             character_count=characters,
             word_count=words,
             estimated_tokens=estimated_tokens,
             average_page_length=characters / max(pages, 1),
-            average_paragraph_length=(
-                sum(len(p) for p in paragraphs) / max(len(paragraphs), 1)
-            ),
+            average_paragraph_length=avg_paragraph_length,
             average_sentence_length=(
                 sum(len(s) for s in sentences) / max(len(sentences), 1)
             ),

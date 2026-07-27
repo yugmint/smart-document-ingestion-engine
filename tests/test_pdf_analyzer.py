@@ -49,6 +49,30 @@ def test_chunk_size_shrinks_and_merge_enabled_for_choppy_text():
     assert analysis.recommendation.merge_small_chunks is True
 
 
+def test_average_paragraph_length_falls_back_to_sentences_when_no_blank_lines():
+    """
+    Real bug: dense multi-column academic layouts often don't reproduce
+    blank-line paragraph breaks through pypdf extraction, so the whole
+    document comes back as ONE "paragraph" and average_paragraph_length
+    blows up to the entire document's length (a real 11-page paper hit
+    43,767 chars this way). Sentence boundaries survive column-layout
+    extraction even when blank lines don't, so this should fall back to
+    a sentence-grouped estimate instead of the raw single-blob length.
+    """
+    analyzer = PDFAnalyzer()
+    # 40 real sentences, single \n only (no \n\n) -- exactly the
+    # column-layout extraction shape that broke this.
+    sentences = "This is a real sentence about the topic. " * 40
+    docs = _pages(sentences.replace(". ", ".\n"))
+
+    analysis = analyzer.analyze(docs, r"local/tests\data\rag_test_files\dense_layout.pdf")
+
+    # A single giant "paragraph" would be ~1,600+ chars; the
+    # sentence-grouped fallback should land far below that, close to a
+    # real ~4-sentence paragraph's actual size.
+    assert analysis.statistics.average_paragraph_length < 400
+
+
 def test_confidence_drops_for_very_short_documents():
     analyzer = PDFAnalyzer()
     docs = _pages("Hi.")

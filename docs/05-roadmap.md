@@ -121,18 +121,20 @@ its §5).
       text extraction produces low-signal, barely-readable chunk content
       today (`pypdf` extracts embedded math as garbled character
       sequences) — confirmed in the same report.
-- [ ] **`average_paragraph_length` is unreliable for some real academic
-      PDF layouts** — found 2026-07-24 testing a third document (a
-      genuine, correctly-classified research paper this time):
-      `_extract_statistics` computed 43,767 chars for this metric on an
-      11-page paper, because dense multi-column academic layouts don't
-      always reproduce blank-line (`"\n\n"`) paragraph breaks through
-      `pypdf` extraction. Harmless in this instance (the downstream
-      "paragraph too large" branch still made a reasonable call), but the
-      input signal itself was close to meaningless — investigate a
-      sentence-based fallback when paragraph count is implausibly low
-      relative to page/word count. See
-      `RAG_Project_1/docs/reports/2026-07-24-efficientnet-research-paper-e2e-test.md` §1.
+- [x] **`average_paragraph_length` unreliable on dense PDF layouts —
+      fixed 2026-07-28.** Found 2026-07-24: `_extract_statistics`
+      computed 43,767 chars for this metric on an 11-page paper, because
+      dense multi-column layouts don't always reproduce blank-line
+      (`"\n\n"`) paragraph breaks through `pypdf` extraction. Fixed with
+      the sentence-based fallback already anticipated here: when
+      paragraph count is implausible relative to sentence count
+      (`paragraphs * 6 < sentences`), estimate from sentences grouped in
+      4s instead — sentence boundaries survive column-layout extraction
+      even when blank lines don't. Verified against the real airlock
+      paper (10 pages, same column-layout shape): old calculation gave
+      4,405 chars (2 blank-line paragraphs across the whole document,
+      clearly wrong); fallback gives 379 chars, a sane real paragraph
+      size. 1 new test.
 - [x] **Chunk-level section-role metadata** (references/bibliography vs.
       body text) — same report, §3: a References-section chunk (a dense,
       unbroken bibliography with no paragraph breaks to split on)

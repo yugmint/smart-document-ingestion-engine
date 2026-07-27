@@ -10,6 +10,16 @@ never tagged at the time).
 document's worth of real-world validation, several roadmap items still
 open). See `05-roadmap.md`.
 
+## [0.4.4] — 2026-07-28
+
+**Fixed:**
+- `average_paragraph_length` unreliable on dense multi-column PDF
+  layouts (blank-line paragraph breaks don't always survive `pypdf`
+  extraction, once seen skewing this stat to 43,767 chars on an
+  11-page paper). Falls back to a sentence-grouped estimate when
+  paragraph count looks implausible. Verified on the real airlock
+  paper: 4,405 → 379 chars. 1 new test.
+
 ## [0.4.3] — 2026-07-27
 
 **Added:**
