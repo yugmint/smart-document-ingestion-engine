@@ -87,9 +87,21 @@ its §5).
 
 ## v0.2.0 — Ingestion coverage & classification robustness (planned)
 
-- [ ] Additional loaders beyond PDF: `.docx`, `.html`, `.txt` at minimum.
-      `LoaderFactory`/`AnalyzerFactory` are already structured for this —
-      new classes + registrations, not a redesign.
+- [x] **Additional loaders — shipped 2026-07-27.** `.txt`/`.html`/`.docx`
+      loaders + `LoaderFactory`/`config.supported_extensions`
+      registrations, as anticipated. New `GenericAnalyzer` for the
+      3 non-PDF formats (no PDF-page layout signal to detect
+      equations/tables/references from) — always classifies "general"
+      using the same baseline chunk profile `PDFAnalyzer` already falls
+      back to for ambiguous PDFs; reuses `PDFAnalyzer._extract_statistics`
+      (pure text-stats math, not actually PDF-specific) rather than
+      duplicating it. Real per-format classification quality is out of
+      scope here — that's v0.3.0's "real adaptive chunkers", not a
+      loaders gap. New deps: `python-docx` (no lighter option parses
+      real .docx); `beautifulsoup4` was already an implicit transitive
+      dependency, pinned directly now. 8 new tests; validated with a
+      real end-to-end `.txt` ingest through the full pipeline (loader →
+      analyzer → chunker → embed → FAISS).
 - [ ] OCR path for scanned/image-only PDFs — a new loader variant, not a
       change to the existing one.
 - [x] Corroborate the `"chapter"` → `book` classification against

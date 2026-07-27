@@ -3,6 +3,7 @@
 from pathlib import Path
 
 from src.ingestion.analysers.pdf_analyzer import PDFAnalyzer
+from src.ingestion.analysers.generic_analyzer import GenericAnalyzer
 from src.ingestion.exceptions import UnsupportedDocumentError
 
 
@@ -13,6 +14,10 @@ class AnalyzerFactory:
 
     _ANALYZERS = {
         ".pdf": PDFAnalyzer,
+        ".txt": GenericAnalyzer,
+        ".html": GenericAnalyzer,
+        ".htm": GenericAnalyzer,
+        ".docx": GenericAnalyzer,
     }
 
     @staticmethod

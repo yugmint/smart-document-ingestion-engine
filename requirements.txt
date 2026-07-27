@@ -4,6 +4,8 @@ langchain-huggingface>=0.1
 sentence-transformers>=3.0
 faiss-cpu>=1.8
 pypdf>=4.0
+beautifulsoup4>=4.15  # .html loader -- was already an implicit transitive dependency, pinned directly now that html_loader.py depends on it
+python-docx>=1.2  # .docx loader
 
 # API service
 fastapi>=0.115

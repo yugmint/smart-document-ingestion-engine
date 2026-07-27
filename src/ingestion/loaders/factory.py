@@ -1,6 +1,9 @@
 from pathlib import Path
 
 from src.ingestion.loaders.pdf_loader import PDFLoader
+from src.ingestion.loaders.text_loader import TextLoader
+from src.ingestion.loaders.html_loader import HTMLLoader
+from src.ingestion.loaders.docx_loader import DocxLoader
 from src.ingestion.exceptions import UnsupportedDocumentError
 
 
@@ -11,6 +14,10 @@ class LoaderFactory:
 
     _LOADERS = {
         ".pdf": PDFLoader,
+        ".txt": TextLoader,
+        ".html": HTMLLoader,
+        ".htm": HTMLLoader,
+        ".docx": DocxLoader,
     }
 
     @staticmethod

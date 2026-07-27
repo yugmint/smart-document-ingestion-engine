@@ -10,6 +10,20 @@ never tagged at the time).
 document's worth of real-world validation, several roadmap items still
 open). See `05-roadmap.md`.
 
+## [0.4.3] — 2026-07-27
+
+**Added:**
+- `.txt`/`.html`/`.docx` loaders (`TextLoader`/`HTMLLoader`/`DocxLoader`)
+  + factory/config registrations. New `GenericAnalyzer` for these 3
+  formats -- classifies "general" with the same baseline profile
+  `PDFAnalyzer` uses for ambiguous PDFs, reusing its statistics helper
+  rather than duplicating it. New deps: `python-docx`, `beautifulsoup4`
+  (latter was already transitive, pinned directly now). 8 new tests.
+
+**Validated:** real end-to-end `.txt` ingest through the full pipeline
+(loader → analyzer → chunker → embed → FAISS) — 2 chunks produced,
+correct source metadata, indexed cleanly.
+
 ## [0.4.2] — 2026-07-27
 
 Docs only — no code changed. `docs/05-roadmap.md`'s v0.4.0 section was

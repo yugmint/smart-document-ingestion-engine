@@ -108,7 +108,7 @@ class IngestionConfig:
         default_factory=lambda: _env_int("INGESTION_MAX_DOCUMENT_SIZE_MB", 100)
     )
 
-    supported_extensions: tuple[str, ...] = (".pdf",)
+    supported_extensions: tuple[str, ...] = (".pdf", ".txt", ".html", ".htm", ".docx")
 
     def __post_init__(self):
         if self.chunk_size <= 0:
