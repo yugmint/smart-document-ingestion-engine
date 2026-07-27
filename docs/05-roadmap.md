@@ -258,6 +258,15 @@ its §5).
       job runs the real-embedding-model tests, gated to `main`, release
       branches, and a weekly schedule — not every feature-branch push,
       since it downloads a model.
+- [x] **CORS middleware — fixed 2026-07-26.** No CORS configuration at
+      all -- browsers silently block every request from any frontend
+      not served from the exact same origin, including a
+      `file://`-opened local HTML page (exactly how the sibling
+      `RAG_Project_1/../frontend/index.html` runs). Found while wiring
+      that frontend up. `CORSMiddleware` added, wide open by default
+      (`CORS_ALLOW_ORIGINS` env override for a real deployment that
+      wants to restrict it). Verified via a real preflight request with
+      `Origin: null` (what `file://` pages send) against a live server.
 
 ## v1.0.0 — Stability claim (planned, no fixed scope yet)
 

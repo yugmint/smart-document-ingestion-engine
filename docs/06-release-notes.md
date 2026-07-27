@@ -10,6 +10,13 @@ never tagged at the time).
 document's worth of real-world validation, several roadmap items still
 open). See `05-roadmap.md`.
 
+## [0.4.2] — 2026-07-27
+
+Docs only — no code changed. `docs/05-roadmap.md`'s v0.4.0 section was
+missing the CORS middleware fix (it landed without a corresponding
+checkbox). Added it in its proper place so the roadmap accurately
+reflects what's actually shipped.
+
 ## [0.4.1] — 2026-07-26
 
 **Added:**
