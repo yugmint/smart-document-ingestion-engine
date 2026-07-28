@@ -12,6 +12,7 @@ fastapi>=0.115
 uvicorn>=0.34
 python-multipart>=0.0.20
 slowapi>=0.1.9  # per-client (IP) rate limiting on /ingest -- in-memory backend, no Redis needed at current scale
+prometheus_client>=0.25  # GET /metrics
 requests>=2.32  # notifies the sibling RAG API's /reload after a successful /ingest, when RAG_RELOAD_URL is set
 
 # Dev / test only

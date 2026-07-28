@@ -17,6 +17,7 @@ from src.ingestion.models import IngestionReport
 
 from src.ingestion.loaders.factory import LoaderFactory
 from src.ingestion.cleaners.factory import CleanerFactory
+from src.ingestion.cleaners.text_cleaner import noise_page_percentage
 from src.ingestion.analysers.factory import AnalyzerFactory
 from src.ingestion.chunkers.hybrid_chunker import HybridChunker
 from src.ingestion.metadata.generator import MetadataGenerator
@@ -24,6 +25,14 @@ from src.ingestion.embedders.embedder import Embedder
 from src.ingestion.indexers.faiss_indexer import FAISSIndexer
 
 from src.utils.logger import logger
+from src.utils.metrics import (
+    AVERAGE_CHUNK_SIZE_CHARS,
+    CHUNK_COUNT,
+    DUPLICATE_CHUNKS,
+    INGESTIONS_TOTAL,
+    NOISE_PERCENTAGE,
+    STAGE_DURATION_SECONDS,
+)
 
 
 class IngestionPipeline:
@@ -65,21 +74,33 @@ class IngestionPipeline:
             # Load Document
             # --------------------------------------------------
 
+            stage_start = perf_counter()
             loader = LoaderFactory.build(file_path)
             documents = loader.load(file_path)
+            STAGE_DURATION_SECONDS.labels(stage="load").observe(perf_counter() - stage_start)
 
             # --------------------------------------------------
             # Clean Document
             # --------------------------------------------------
 
+            # Measured on the pre-clean documents -- clean() is about to
+            # strip exactly this noise, so measuring after would always
+            # read 0%.
+            noise_pct = noise_page_percentage(documents)
+            NOISE_PERCENTAGE.observe(noise_pct)
+
+            stage_start = perf_counter()
             documents = self.cleaner.clean(documents)
+            STAGE_DURATION_SECONDS.labels(stage="clean").observe(perf_counter() - stage_start)
 
             # --------------------------------------------------
             # Analyze Document
             # --------------------------------------------------
 
+            stage_start = perf_counter()
             analyzer = AnalyzerFactory.build(file_path)
             analysis = analyzer.analyze(documents, file_path)
+            STAGE_DURATION_SECONDS.labels(stage="analyze").observe(perf_counter() - stage_start)
 
             logger.info(f"Document Type   : {analysis.document_type}")
             logger.info(f"Confidence      : {analysis.confidence:.2f}")
@@ -90,17 +111,23 @@ class IngestionPipeline:
             # Chunk Document
             # --------------------------------------------------
 
+            stage_start = perf_counter()
             chunks = self.chunker.chunk(documents, analysis)
+            STAGE_DURATION_SECONDS.labels(stage="chunk").observe(perf_counter() - stage_start)
 
             # --------------------------------------------------
             # Metadata Generation
             # --------------------------------------------------
 
+            stage_start = perf_counter()
             chunks = self.metadata.generate(chunks, file_path, analysis)
+            STAGE_DURATION_SECONDS.labels(stage="metadata").observe(perf_counter() - stage_start)
 
             # --------------------------------------------------
             # Vector Index
             # --------------------------------------------------
+
+            stage_start = perf_counter()
 
             # Accumulate into any existing index rather than always
             # rebuilding from scratch -- a plain `.build()` here on every
@@ -119,15 +146,25 @@ class IngestionPipeline:
             if save_index:
                 self.indexer.save(vectorstore, self.config.index_path)
 
+            STAGE_DURATION_SECONDS.labels(stage="index").observe(perf_counter() - stage_start)
+
             elapsed = perf_counter() - start
+
+            average_chunk_size = (
+                sum(len(c.page_content) for c in chunks) / max(len(chunks), 1)
+            )
+            duplicate_chunks = len(chunks) - len({c.page_content for c in chunks})
+
+            CHUNK_COUNT.observe(len(chunks))
+            AVERAGE_CHUNK_SIZE_CHARS.observe(average_chunk_size)
+            DUPLICATE_CHUNKS.observe(duplicate_chunks)
+            INGESTIONS_TOTAL.labels(outcome="success").inc()
 
             report = IngestionReport(
                 source=Path(file_path).name,
                 total_pages=analysis.statistics.page_count,
                 total_chunks=len(chunks),
-                average_chunk_size=(
-                    sum(len(c.page_content) for c in chunks) / max(len(chunks), 1)
-                ),
+                average_chunk_size=average_chunk_size,
                 embedding_model=self.config.embedding_model,
                 vector_store=self.config.vector_store,
                 processing_time=elapsed,
@@ -149,10 +186,12 @@ class IngestionPipeline:
 
         except IngestionError:
             # Already a typed, actionable error -- let it propagate as-is.
+            INGESTIONS_TOTAL.labels(outcome="error").inc()
             raise
 
         except Exception as exc:
             logger.error(f"Ingestion failed for '{file_path}': {exc}")
+            INGESTIONS_TOTAL.labels(outcome="error").inc()
             raise IngestionError(
                 f"Ingestion failed for '{file_path}': {exc}"
             ) from exc

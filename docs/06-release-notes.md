@@ -10,6 +10,24 @@ never tagged at the time).
 document's worth of real-world validation, several roadmap items still
 open). See `05-roadmap.md`.
 
+## [0.4.7] — 2026-07-28
+
+**Added:**
+- Observability. New `GET /metrics` (Prometheus text format,
+  auth-protected), mirroring `RAG_Project_1`'s. Per-stage timing,
+  run outcomes, chunk count/size, duplicate chunks, and header/footer
+  noise percentage -- all recorded from the single
+  `IngestionPipeline.ingest()` call point. New pure
+  `noise_page_percentage()` in `text_cleaner.py` (deliberately not an
+  instance attribute, to avoid a race on the API's shared pipeline
+  instance under concurrent requests). New explicit dependency:
+  `prometheus_client`. 3 new tests.
+
+**Validated:** real ingestion run correctly recorded
+`ingestion_noise_percentage_sum=98.3`, `duplicate_chunks=0`, per-stage
+timings, and chunk count 653 against the same real history book used
+elsewhere this session.
+
 ## [0.4.6] — 2026-07-28
 
 **Added:**

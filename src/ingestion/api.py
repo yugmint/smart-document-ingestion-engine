@@ -25,6 +25,8 @@ from pathlib import Path
 import requests
 from fastapi import Depends, FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import Response
+from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
@@ -85,6 +87,21 @@ pipeline = IngestionPipeline()
 @app.get("/health")
 def health():
     return {"status": "ok"}
+
+
+@app.get("/metrics", dependencies=[Depends(require_api_key)])
+def metrics():
+    """
+    Prometheus text-exposition format: per-stage ingestion timing,
+    chunk count/size, duplicate-chunk count, header/footer noise
+    percentage (src/utils/metrics.py), recorded once per
+    IngestionPipeline.ingest() call regardless of caller (this API or
+    the CLI). Mirrors RAG_Project_1's GET /metrics -- same library,
+    same shape. Auth-protected like every other non-/health endpoint
+    here.
+    """
+
+    return Response(generate_latest(), media_type=CONTENT_TYPE_LATEST)
 
 
 def _notify_rag_reload() -> str:

@@ -34,6 +34,12 @@ def _normalize_line(line: str) -> str:
     return re.sub(r"\s+", " ", normalized)
 
 
+def _edge_line_patterns(document: Document) -> set[str]:
+    lines = [l for l in (document.page_content or "").split("\n") if l.strip()]
+    edge_lines = lines[:_EDGE_LINES] + lines[-_EDGE_LINES:]
+    return {_normalize_line(l) for l in edge_lines if l.strip()}
+
+
 def _find_repeated_lines(documents: list[Document]) -> set[str]:
     """
     Returns the set of normalized line patterns that repeat across
@@ -46,16 +52,37 @@ def _find_repeated_lines(documents: list[Document]) -> set[str]:
     counts: Counter = Counter()
 
     for document in documents:
-        lines = [l for l in (document.page_content or "").split("\n") if l.strip()]
-        edge_lines = lines[:_EDGE_LINES] + lines[-_EDGE_LINES:]
         # A pattern should only count once per page even if it somehow
         # appears twice in that page's edge lines.
-        for pattern in {_normalize_line(l) for l in edge_lines if l.strip()}:
+        for pattern in _edge_line_patterns(document):
             counts[pattern] += 1
 
     threshold = max(_MIN_PAGE_COUNT, int(len(documents) * _MIN_PAGE_FRACTION))
 
     return {pattern for pattern, count in counts.items() if count >= threshold}
+
+
+def noise_page_percentage(documents: list[Document]) -> float:
+    """
+    Percentage (0-100) of pages with at least one repeated header/footer
+    line -- i.e. what clean() is about to strip. A pure, stateless
+    re-derivation of the same detection clean() does internally (not
+    plumbed through as a return value or instance attribute) so callers
+    like IngestionPipeline can read it without any shared-mutable-state
+    race risk against a reused TextCleaner instance handling concurrent
+    /ingest requests (src/ingestion/api.py holds one pipeline instance
+    for the process's lifetime).
+    """
+
+    noise_patterns = _find_repeated_lines(documents)
+    if not noise_patterns:
+        return 0.0
+
+    noisy_pages = sum(
+        1 for document in documents if _edge_line_patterns(document) & noise_patterns
+    )
+
+    return 100 * noisy_pages / len(documents)
 
 
 class TextCleaner(BaseCleaner):

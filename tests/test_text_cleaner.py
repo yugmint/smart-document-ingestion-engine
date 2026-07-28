@@ -1,6 +1,6 @@
 from langchain_core.documents import Document
 
-from src.ingestion.cleaners.text_cleaner import TextCleaner
+from src.ingestion.cleaners.text_cleaner import TextCleaner, noise_page_percentage
 
 
 def _pages(*texts):
@@ -100,3 +100,45 @@ def test_existing_whitespace_normalization_still_works():
     assert "\n\n\n" not in cleaned[0].page_content
     assert "line two with spaces" in cleaned[0].page_content
     assert cleaned[0].page_content == cleaned[0].page_content.strip()
+
+
+def test_noise_page_percentage_all_pages_noisy():
+    docs = _pages(
+        "AHMEDABAD | BENGALURU | RANCHI\n1 www.example.com\nReal content page one.",
+        "AHMEDABAD | BENGALURU | RANCHI\n2 www.example.com\nReal content page two.",
+        "AHMEDABAD | BENGALURU | RANCHI\n3 www.example.com\nReal content page three.",
+    )
+
+    assert noise_page_percentage(docs) == 100.0
+
+
+def test_noise_page_percentage_zero_when_nothing_repeats():
+    docs = _pages(
+        "Completely unique page one content.",
+        "Totally different page two content.",
+        "Yet another unrelated page three.",
+    )
+
+    assert noise_page_percentage(docs) == 0.0
+
+
+def test_noise_page_percentage_matches_clean_stripped_lines():
+    # Same document TextCleaner strips lines from -- the percentage
+    # should agree with what clean() actually did, not just what it
+    # detected in isolation. 3 of 4 pages branded (>= both the absolute
+    # _MIN_PAGE_COUNT=3 and the 50% fraction threshold).
+    branded = "AHMEDABAD | BENGALURU | RANCHI\n{n} www.example.com\nReal content page {n}."
+    docs = _pages(
+        branded.format(n=1),
+        branded.format(n=2),
+        branded.format(n=3),
+        "Different, unrelated fourth page with no branding at all here today.",
+    )
+
+    pct = noise_page_percentage(docs)
+    cleaned = TextCleaner().clean(docs)
+
+    assert pct == 75.0
+    assert "AHMEDABAD" not in cleaned[0].page_content
+    assert "AHMEDABAD" not in cleaned[1].page_content
+    assert "AHMEDABAD" not in cleaned[2].page_content

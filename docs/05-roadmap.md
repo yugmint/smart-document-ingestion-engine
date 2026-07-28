@@ -308,6 +308,31 @@ its §5).
       (`CORS_ALLOW_ORIGINS` env override for a real deployment that
       wants to restrict it). Verified via a real preflight request with
       `Origin: null` (what `file://` pages send) against a live server.
+- [x] **Observability — added 2026-07-28.** New `GET /metrics`
+      (Prometheus text format, auth-protected), mirroring
+      `RAG_Project_1`'s equivalent -- same library, same shape.
+      `src/utils/metrics.py`: per-stage timing
+      (`ingestion_stage_duration_seconds{stage}` -- load/clean/analyze/
+      chunk/metadata/index), `ingestion_runs_total{outcome}`, and
+      per-ingestion `ingestion_chunk_count`/
+      `ingestion_average_chunk_size_chars`/`ingestion_duplicate_chunks`/
+      `ingestion_noise_percentage` (the last one reusing the header/
+      footer detection above -- measured on the pre-`clean()` documents
+      via a new pure `noise_page_percentage()` function, deliberately
+      *not* threaded through as a `TextCleaner` return value or
+      instance attribute, since `src/ingestion/api.py` holds one
+      `IngestionPipeline`/`TextCleaner` instance for the process's
+      lifetime and concurrent `/ingest` requests could otherwise race
+      on shared mutable state). All recorded from the single
+      `IngestionPipeline.ingest()` call both the API and CLI already go
+      through.
+      3 new tests (`noise_page_percentage`). **Validated with a real
+      ingestion run** (the same history book): correctly recorded
+      `ingestion_noise_percentage_sum=98.3` (98.3% of *pages* had noise
+      before cleaning -- a different, equally real denominator than the
+      16.7% of *chunks* figure above: most pages have several chunks
+      but the header only lands in the first one), `duplicate_chunks=0`,
+      per-stage timings, chunk count 653.
 
 ## v1.0.0 — Stability claim (planned, no fixed scope yet)
 
