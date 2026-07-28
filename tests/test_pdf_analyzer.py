@@ -123,6 +123,28 @@ def test_chapter_keyword_still_classifies_narrative_prose_as_book():
     assert analysis.document_type == "book"
 
 
+def test_numbered_toc_dot_leaders_classify_as_book_without_literal_chapter():
+    # Regression test for a real 117-page UPSC exam-prep history book:
+    # its contents page is headed "Contents" (not "Table of Contents")
+    # and sections are numbered ("1. ANCIENT HISTORY ... 5"), never the
+    # literal word "chapter" -- fell through to "general" (chunk_size
+    # 500) instead of "book" (800). See docs/05-roadmap.md and
+    # docs/reports/2026-07-28-history-book-e2e-test.md.
+    analyzer = PDFAnalyzer()
+    docs = _pages(
+        "Contents\n"
+        "Preface " + ("." * 100) + " 4\n"
+        "1. ANCIENT HISTORY AND ART & CULTURE OF INDIA " + ("." * 80) + " 5\n"
+        "1.1. India's Culture and its Continuity " + ("." * 80) + " 5\n"
+        "1.2. Stone Age " + ("." * 90) + " 9\n",
+        "1. Ancient History\n\n" + ("Body text about ancient history. " * 100),
+    )
+
+    analysis = analyzer.analyze(docs, r"local/tests\data\rag_test_files\history-book.pdf")
+
+    assert analysis.document_type == "book"
+
+
 def test_structured_abstract_without_literal_word_abstract_is_research_paper():
     # Regression test for a real misclassification (Hu et al. 2020,
     # a COVID-19 severity study): medical journals often use a

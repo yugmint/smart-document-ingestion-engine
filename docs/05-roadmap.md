@@ -116,6 +116,36 @@ its §5).
       classification-correctness fix, not a retrieval-quality one — see
       the reranking/dedup items in `RAG_Project_1`'s roadmap for what
       actually addresses that.
+- [x] **Numbered-outline TOCs missed by `book` classification — fixed
+      2026-07-28.** Found via `RAG_Project_1`'s 97-case real benchmark
+      on the 117-page history book (this project's actual target
+      document type): its contents page is headed just "Contents", and
+      sections are numbered ("1. ANCIENT HISTORY... 5") rather than
+      literally labelled "Chapter N" -- neither the `"chapter"` nor
+      `"table of contents"` literal check fired, so it fell through to
+      `general` (chunk_size=500, confidence 0.60) instead of `book`
+      (800, higher confidence). Added `_TOC_DOT_LEADER_RE` to
+      `PDFAnalyzer._classify_document`: a real TOC's dot-leader lines
+      (title + a run of dots + trailing page number), seen >=3 times, is
+      a reliable low-false-positive fingerprint distinct from the
+      existing keyword checks. 1 new regression test.
+      **Validated against the real book through the full pipeline**
+      (load -> clean -> analyze, not just the raw loader -- the header
+      noise on every page briefly looked like a `has_tables` false
+      positive via `"|" in text` until routed through the real cleaner
+      first): confidence 0.60 -> 0.85, chunk_size 500 -> 800, re-ingested
+      to a fresh index (421 chunks vs. 688 originally).
+      **Full 92-question real re-run (`RAG_Project_1/scripts/benchmark.py`,
+      History Book subset), not just a sample:** answer correctness
+      82% -> 85% net. Real per-category effect, not uniform: L1-Exact
+      Fact +15pp (bigger chunks fixed a genuine topic-confusion bug --
+      "earliest cities" was retrieving unrelated Gangetic-plains content
+      instead of Harappan) and L5-Ambiguous +20pp; L5-Cross-document
+      -20pp is a real, traced regression (a previously-correct
+      comparative question now gets refused) -- comparative "which X vs
+      Y" questions are a separate, unresolved generation-behavior issue,
+      not fixed by chunk size in either direction. See
+      `RAG_Project_1/docs/05-roadmap.md` for the follow-up tracking that.
 - [ ] Equation-aware handling: `layout.has_equations` is detected but
       nothing currently changes behavior based on it. Equation-heavy PDF
       text extraction produces low-signal, barely-readable chunk content

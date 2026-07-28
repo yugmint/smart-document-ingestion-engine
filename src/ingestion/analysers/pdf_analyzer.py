@@ -94,6 +94,16 @@ _LEGAL_PHRASES = (
     "entered into this agreement",
 )
 
+# A numbered outline TOC ("1. ANCIENT HISTORY ... 5", "1.1. Sub-topic ... 6")
+# is exactly the "book" signal the literal "chapter"/"table of contents"
+# check misses -- found via a real 117-page exam-prep book whose contents
+# page is headed just "Contents" and whose sections are numbered, not
+# labelled "Chapter N". Dot-leader lines (title, a run of dots, a trailing
+# page number) are the reliable fingerprint of a real TOC, seen several
+# times together, not a one-off coincidence elsewhere in the text.
+_TOC_DOT_LEADER_RE = re.compile(r"\.{4,}\s*\d+\s*$", re.MULTILINE)
+_TOC_MIN_LINES = 3
+
 
 class PDFAnalyzer(BaseAnalyzer):
     """
@@ -288,7 +298,10 @@ class PDFAnalyzer(BaseAnalyzer):
         # to a worse-fitting profile than "general" would have. See
         # docs/05-roadmap.md and the 2026-07-24 academic-document report.
         looks_technical = layout.has_equations or layout.has_tables
-        if ("chapter" in text or "table of contents" in text) and not looks_technical:
+        has_toc_dot_leaders = len(_TOC_DOT_LEADER_RE.findall(text)) >= _TOC_MIN_LINES
+        if (
+            "chapter" in text or "table of contents" in text or has_toc_dot_leaders
+        ) and not looks_technical:
             return "book"
 
         if any(phrase in text for phrase in _LEGAL_PHRASES):

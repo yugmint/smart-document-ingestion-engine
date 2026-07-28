@@ -10,6 +10,22 @@ never tagged at the time).
 document's worth of real-world validation, several roadmap items still
 open). See `05-roadmap.md`.
 
+## [0.4.8] — 2026-07-28
+
+**Fixed:**
+- `PDFAnalyzer._classify_document` missed numbered-outline TOCs
+  ("Contents" heading, "1. TITLE ... 5" sections) -- only the literal
+  `"chapter"`/`"table of contents"` strings triggered `book`. New
+  dot-leader TOC detection (title + dots + page number, seen >=3 times).
+  1 new test.
+
+**Validated:** real 117-page history book through the full pipeline --
+confidence 0.60 -> 0.85, chunk_size 500 -> 800. Full 92-question
+real re-run (`RAG_Project_1/scripts/benchmark.py`): answer correctness
+82% -> 85%. See `05-roadmap.md` v0.2.0 for the honest per-category
+breakdown, including a real regression on comparative questions that
+this fix does not address.
+
 ## [0.4.7] — 2026-07-28
 
 **Added:**
