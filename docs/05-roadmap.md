@@ -228,7 +228,11 @@ its §5).
 - [ ] Real `SemanticChunker` — embedding-similarity boundary detection.
 - [ ] Real `MarkdownChunker` — fenced-code/table-aware splitting.
 - [ ] `TextCleaner` improvements noted in its own docstring: header/footer
-      removal, hyphenation repair, table cleanup.
+      removal, hyphenation repair, table cleanup. **Now has a real number
+      behind it:** a 2026-07-28 E2E test on a real 117-page UPSC-style
+      study-guide book (this project's stated major target document type)
+      found repeating branding-header noise in 115/688 chunks (16.7%). See
+      `RAG_Project_1/docs/reports/2026-07-28-history-book-e2e-test.md` §1.
 
 ## v0.4.0 — Deployment hardening
 
