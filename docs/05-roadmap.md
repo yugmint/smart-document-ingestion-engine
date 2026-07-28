@@ -102,8 +102,6 @@ its §5).
       dependency, pinned directly now. 8 new tests; validated with a
       real end-to-end `.txt` ingest through the full pipeline (loader →
       analyzer → chunker → embed → FAISS).
-- [ ] OCR path for scanned/image-only PDFs — a new loader variant, not a
-      change to the existing one.
 - [x] Corroborate the `"chapter"` → `book` classification against
       `layout.has_equations`/`has_tables` before committing to `book` —
       see the 2026-07-24 report above for the exact mechanism. Fixed in
@@ -369,6 +367,12 @@ its §5).
 Once enough of v0.2.0–v0.4.0 has landed and this has seen real usage
 across more than one document, revisit whether a 1.0 claim is warranted —
 not before.
+
+- [ ] **OCR path for scanned/image-only PDFs — moved here 2026-07-28,
+      post-deployment.** A new loader variant, not a change to the
+      existing one. Originally scoped under v0.2.0; deliberately pushed
+      out to after real deployment usage rather than built speculatively
+      now.
 
 ## Unscheduled
 
