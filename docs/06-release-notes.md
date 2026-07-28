@@ -10,6 +10,20 @@ never tagged at the time).
 document's worth of real-world validation, several roadmap items still
 open). See `05-roadmap.md`.
 
+## [0.4.6] — 2026-07-28
+
+**Added:**
+- `TextCleaner` now detects and strips repeated header/footer lines
+  across a document's pages before its existing whitespace cleanup --
+  normalizes away page-number-like variation so a line repeating with a
+  different number on each page is still recognized as the same
+  pattern. 6 new tests.
+
+**Validated:** re-ingested the real 117-page book that motivated this
+(`docs/05-roadmap.md` v0.2.0) -- branding noise in chunks: 16.7% → 0%
+(target was <2%). Generation quality on the cleaned index spot-checked
+unchanged/improved against the original E2E report's questions.
+
 ## [0.4.5] — 2026-07-28
 
 **Fixed:**

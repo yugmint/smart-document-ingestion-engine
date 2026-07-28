@@ -227,12 +227,35 @@ its §5).
 - [ ] Real `StructureChunker` — heading/section-hierarchy-aware splitting.
 - [ ] Real `SemanticChunker` — embedding-similarity boundary detection.
 - [ ] Real `MarkdownChunker` — fenced-code/table-aware splitting.
-- [ ] `TextCleaner` improvements noted in its own docstring: header/footer
-      removal, hyphenation repair, table cleanup. **Now has a real number
-      behind it:** a 2026-07-28 E2E test on a real 117-page UPSC-style
-      study-guide book (this project's stated major target document type)
-      found repeating branding-header noise in 115/688 chunks (16.7%). See
-      `RAG_Project_1/docs/reports/2026-07-28-history-book-e2e-test.md` §1.
+- [x] **Header/footer removal — shipped and validated 2026-07-28.**
+      `TextCleaner.clean()` now takes a first pass across all of a
+      document's pages before its existing per-document whitespace
+      cleanup: collects each page's first/last 4 non-empty lines
+      (header/footer territory), normalizes away anything that varies
+      page-to-page (digit runs, mainly page numbers -- `re.sub(r"\d+",
+      "#", ...)`), and strips any line pattern that repeats on at least
+      half the pages (minimum 3) from every page it appears on. A
+      single/short document (<3 pages) skips detection entirely rather
+      than risk stripping real short-document content that happens to
+      repeat.
+      Real, precise motivation: the 2026-07-28 E2E test on a real
+      117-page UPSC-style study-guide book (this project's stated major
+      target document type) found repeating branding-header noise in
+      115/688 chunks (16.7%) -- see
+      `RAG_Project_1/docs/reports/2026-07-28-history-book-e2e-test.md`
+      §1. 6 new unit tests.
+      **Validated by re-ingesting that exact document:** 16.7% → **0%**
+      of chunks containing the branding noise (well under the <2%
+      success criterion from the review this came out of); chunk count
+      653 (was 688, fewer noise-only fragments to chunk); spot-checked
+      generation quality on the cleaned index against the same real
+      question from the original report -- unchanged, if anything more
+      precise ("Monarchies (Rajyas) / Ganasanghas (Republics)" instead
+      of a looser paraphrase). Known residual: the document's bare
+      "Student Notes:" section label wasn't caught by this pass (didn't
+      consistently fall within the first/last 4 lines across enough
+      pages) -- much lower-signal than the branding block that was the
+      actual target, not revisited.
 
 ## v0.4.0 — Deployment hardening
 
