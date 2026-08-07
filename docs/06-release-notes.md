@@ -10,6 +10,19 @@ never tagged at the time).
 document's worth of real-world validation, several roadmap items still
 open). See `05-roadmap.md`.
 
+## [0.4.9] — 2026-07-29
+
+**Fixed:**
+- `/ingest` citations showed a random tempfile name instead of the
+  real uploaded filename -- found live while smoke-testing a
+  stakeholder demo. `MetadataGenerator` derives `source` from the path
+  handed to `pipeline.ingest()`; the API now preserves the real
+  (sanitized) filename in that path instead of a random tempfile name.
+  2 new tests.
+
+**Validated:** re-ingested a real file through the running demo API --
+citation now correctly reads the uploaded filename.
+
 ## [0.4.8] — 2026-07-28
 
 **Fixed:**

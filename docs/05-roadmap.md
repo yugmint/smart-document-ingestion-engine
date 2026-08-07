@@ -295,6 +295,23 @@ its §5).
       `/ingest` call itself (the FAISS write already succeeded by
       then). Verified against a real running RAG API, including the
       auth-failure path. Wired into the shared `docker-compose.yml`.
+- [x] **`/ingest` citations showed a random tempfile name, not the
+      uploaded filename — fixed 2026-07-29.** Found live, while
+      smoke-testing a stakeholder demo: a citation read
+      `"tmp8f3ks.txt"` instead of the file actually uploaded.
+      `MetadataGenerator` derives every chunk's `source` (and
+      therefore every citation) from the file path handed to
+      `pipeline.ingest()` -- the API wrote the upload to a
+      `tempfile.NamedTemporaryFile`'s randomly-generated name and
+      passed *that* path through. Fixed by writing to a fresh temp
+      *directory* under the real (sanitized) filename instead, so the
+      path's name is the actual upload -- `Path(file.filename).name`
+      also strips any directory components the client sent, closing
+      off path traversal at the same point. 2 new tests (`TestClient`
+      against the real endpoint, including a path-traversal case).
+      **Validated live, not just in tests:** re-ingested a real file
+      through the running demo API -- citation now correctly reads
+      the uploaded filename.
       5 new tests (`test_ingest_api_reload.py`).
 - [x] **Incremental ingestion — fixed 2026-07-26, and it was more than
       "not yet exposed."** `IngestionPipeline.ingest()` always called

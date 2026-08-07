@@ -152,19 +152,27 @@ def ingest(
     if not file.filename:
         raise HTTPException(status_code=400, detail="file must have a filename")
 
-    suffix = Path(file.filename).suffix.lower()
-
-    with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
-        shutil.copyfileobj(file.file, tmp)
-        tmp_path = Path(tmp.name)
+    # Preserve the real filename in the temp path -- MetadataGenerator
+    # derives every chunk's "source" metadata (and therefore every
+    # citation) from this path's name. A random tempfile name here
+    # leaked into citations instead of the file the user actually
+    # uploaded (found live: a citation showed "tmp8f3ks.txt"). Path(...)
+    # .name strips any directory components from the client-supplied
+    # filename, which also closes off path traversal.
+    safe_filename = Path(file.filename).name
+    tmp_dir = Path(tempfile.mkdtemp())
+    tmp_path = tmp_dir / safe_filename
 
     try:
+        with open(tmp_path, "wb") as tmp:
+            shutil.copyfileobj(file.file, tmp)
+
         chunks, analysis = pipeline.ingest(str(tmp_path), replace=replace)
     except IngestionError as exc:
         logger.error(f"Ingestion failed for '{file.filename}': {exc}")
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     finally:
-        tmp_path.unlink(missing_ok=True)
+        shutil.rmtree(tmp_dir, ignore_errors=True)
 
     reload_status = _notify_rag_reload()
 
