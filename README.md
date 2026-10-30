@@ -1,11 +1,38 @@
-# Document Ingestion Pipeline
+# Smart Document Ingestion Engine
 
-Load -> clean -> analyze -> chunk -> generate metadata -> embed -> index.
+> Turns PDF, Word, HTML and text files into a FAISS vector index for RAG. It analyses each document first and picks the chunk size, overlap and strategy from what it finds, instead of using one fixed setting.
+
+![Ingestion pipeline](docs/assets/workflow.svg)
+
+Load → clean → analyse → chunk → generate metadata → embed → index.
+
+This builds the index that [query_intelligence_llm](https://github.com/yugmint/query_intelligence_llm) answers questions from.
+
+## What makes it different
+
+- **Per-document chunking.** `PDFAnalyzer` classifies the document (e.g. research paper, invoice, general), measures paragraph and sentence lengths, and recommends a chunk size, overlap and strategy, with a 0–1 confidence score and a logged rationale. The chunkers use that recommendation rather than one global setting.
+- **A real recursive splitter.** `RecursiveChunker` tries separators in priority order (paragraph → line → sentence → word → character), recurses into pieces that are still too large, packs small fragments back up towards the target size, then applies overlap. Tiny trailing fragments are merged, and oversized paragraphs are hard-split.
+- **Quality checks for any document.** `scripts/validate_chunks.py` and `scripts/validate_embeddings.py` report chunk-size distribution, overlap, mid-sentence cuts, embedding health and a keyword hit-rate check (see below).
+- **Defensive loading.** Missing files, encrypted PDFs, per-page extraction failures and image-only PDFs (which need OCR) raise a typed `IngestionError` with context instead of crashing the run.
+- **Clean metadata.** `file_extension` ("pdf") and `document_type` ("research_paper") are separate fields, and each chunk carries its classification, chunking strategy and confidence.
+
+## A bug the validation script caught
+
+An early `RecursiveChunker` split text into pieces no larger than `chunk_size` but never recombined the small ones. On a PDF with many short extracted lines it produced **38 chunks averaging ~215 characters against a 630-character target (3% within range)**. Adding a greedy packing step (`RecursiveChunker._pack()`) brought the same document to **8 chunks averaging ~520 characters (75% within range)**. Re-running `validate_chunks.py` after any chunker change catches a regression like this immediately.
+
+## Status
+
+- **Loaders:** PDF, DOCX, HTML, plain text.
+- **Chunking:** the recursive chunker is complete. `StructureChunker`, `SemanticChunker` and `MarkdownChunker` are **V1 fallbacks** that delegate to it. Heading-aware, embedding-similarity and markdown-aware splitting are on the [roadmap](docs/05-roadmap.md).
+- **No OCR:** scanned, image-only PDFs are rejected with a clear error.
+- **Indexing:** full builds plus incremental `add()`; refuses to write an empty index.
+- **Tests:** 54 pytest tests, including an end-to-end run on a sample PDF.
+
+## Configuration
+
+`IngestionConfig` validates itself (for example `chunk_overlap < chunk_size`) and can be overridden with environment variables for containers: `INGESTION_CHUNK_SIZE`, `INGESTION_INDEX_PATH`, `INGESTION_EMBEDDING_MODEL` and others. Set `LOG_LEVEL` to control logging.
 
 ## Documentation
-
-This README covers what changed and how to run things day to day. For
-more:
 
 - [`DOCUMENTATION.md`](DOCUMENTATION.md) — full architecture and
   module-by-module reference.
@@ -18,111 +45,6 @@ more:
 - [`PATCH_NOTES.md`](PATCH_NOTES.md) — the specific patch that added e2e
   tests, the quality-validation scripts, and the chunk-packing fix.
 
-This pipeline pairs with a separate RAG project (`RAG_Project_1`, a sibling
-repo) that reads the FAISS index this pipeline produces — see
-`docs/01-architecture.md` for how the two connect.
-
-## What changed from the uploaded version
-
-This is a fixed/hardened version of the pipeline you uploaded. Full
-findings are summarized below; see inline comments in the source for
-the "why" behind each change.
-
-### Chunking (was broken)
-- `RecursiveChunker` previously split text once on the first separator
-  found anywhere in the document and returned the pieces as "chunks" --
-  it never enforced `chunk_size`, never applied overlap, and wasn't
-  actually recursive. It's now a real recursive splitter: it tries
-  separators in priority order (paragraph → line → sentence → word →
-  character), recurses into any piece still over `chunk_size`, then
-  re-joins pieces with a trailing-context overlap.
-- The analyzer's per-document `chunk_size` / `chunk_overlap` /
-  `strategy` recommendation was computed and logged but never actually
-  used -- the chunker read static values from `IngestionConfig`
-  instead. It's now threaded through end-to-end
-  (`analysis.recommendation` → `HybridChunker` → `ChunkerFactory` →
-  concrete chunker).
-- `merge_small_chunks` / `split_large_chunks` were flags the analyzer
-  produced but no chunker consulted. Both are now implemented:
-  small trailing fragments get merged into a neighbor, and paragraphs
-  far larger than the chunk window get hard-split even when the
-  document-type profile would otherwise preserve them whole.
-- `BaseChunker.chunk()`'s abstract signature didn't match any real
-  implementation (`documents` vs `documents, analysis`) -- fixed.
-
-### Analyzer / recommendation engine (was static)
-- `_recommend_chunking` used to be a pure `document_type` lookup table;
-  the `DocumentStatistics` it computed (avg paragraph/sentence length,
-  word count) were calculated and never used. Sizing now adjusts from
-  the per-type baseline based on actual paragraph length, with a
-  `rationale` string logged for observability.
-- Added a `confidence` score (0-1) reflecting how much to trust the
-  classification (and therefore the recommendation) -- e.g. a 3-word
-  document gets a low-confidence "general" classification rather than
-  silently being treated the same as a well-classified one. This
-  finally populates the `confidence` field `pipeline.py` was already
-  trying to log via a dead `hasattr` check.
-- Added the missing `invoice` recommendation branch (previously fell
-  through to `general` silently).
-
-### Metadata
-- Fixed a real naming collision: the metadata generator wrote
-  `document_type` = file extension ("pdf"), while the analyzer's
-  `DocumentAnalysis.document_type` = semantic classification
-  ("research_paper"). Same key, two unrelated meanings. Now
-  `file_extension` and `document_type` are distinct, and the semantic
-  classification / chunking strategy / confidence are included when
-  analysis is available.
-
-### General prod-readiness
-- **Imports**: fixed throughout (see "Import path note" below).
-- **Error handling**: `ingest()` now validates the file up front
-  (exists, supported extension, under `max_document_size_mb`) and
-  wraps every stage so failures raise a typed `IngestionError` instead
-  of an arbitrary exception with no context. See `exceptions.py`.
-- **PDF loading**: handles missing files, encrypted PDFs (tries an
-  empty password), per-page extraction failures (logs + continues
-  instead of crashing the whole document), and raises a clear error
-  for scanned/image-only PDFs that yield no text at all (needs OCR,
-  not this pipeline).
-- **FAISS indexing**: creates the output directory if missing, refuses
-  to silently build an empty index, and adds `load()`/`add()` for
-  incremental indexing instead of always rebuilding from scratch.
-- **Config**: validates itself (`chunk_overlap < chunk_size`, etc.) and
-  is overridable via env vars (`INGESTION_CHUNK_SIZE`,
-  `INGESTION_INDEX_PATH`, `INGESTION_EMBEDDING_MODEL`, ...) for
-  container deployments.
-- **Logging**: centralized, configurable via `LOG_LEVEL`, no more
-  inline `print`-style debugging.
-- **Dead code removed**: `ingestion_pipeline.py` (100% commented-out
-  legacy code) is gone. `embedders/embedder.py` was defined but never
-  called -- it's now the actual call path `pipeline.py` uses instead
-  of reaching into `retrieval` directly.
-- Added `tests/` (pytest) covering the chunker and analyzer fixes, a
-  `Dockerfile`, `requirements.txt`, and a CLI entrypoint
-  (`python -m src.ingestion.pipeline some.pdf`).
-
-### Import path note
-Every file imports from `src.ingestion.*`, `src.retrieval.*`, and
-`src.utils.*`. Only the `ingestion` package itself was in your zip --
-`src/retrieval/embeddings.py` (`EmbeddingFactory`) and
-`src/utils/logger.py` didn't exist anywhere in the upload. I've
-bundled minimal, working versions of both under `src/retrieval/` and
-`src/utils/` so this package runs standalone and the tests pass. If
-your real repo already has fuller versions of those two files
-elsewhere, drop `src/ingestion/` in and keep your existing
-`retrieval`/`utils`, as long as `EmbeddingFactory.get(model_name,
-normalize)` keeps that signature.
-
-## Still marked "V1" / not fixed (by design)
-`StructureChunker`, `SemanticChunker`, and `MarkdownChunker` are still
-documented fallbacks to `RecursiveChunker` -- their docstrings already
-said this was future work (real heading/section-aware splitting,
-embedding-similarity boundaries, fenced-code/table-aware markdown
-splitting). They now at least benefit from the fixed, recommendation-aware
-`RecursiveChunker` underneath, but true structure/semantic/markdown-aware
-splitting is still not implemented.
-
 ## Running
 
 ```bash
@@ -132,9 +54,8 @@ python -m src.ingestion.pipeline path/to/file.pdf
 
 ### As a standalone API
 
-For deployment alongside `RAG_Project_1`'s own API, sharing one FAISS index
-via a mounted volume (see the top-level `docker-compose.yml`, one directory
-up):
+To run it next to [query_intelligence_llm](https://github.com/yugmint/query_intelligence_llm)'s API, share one FAISS
+index between the two containers through a mounted volume:
 
 ```bash
 INGESTION_API_KEY=your-shared-secret uvicorn src.ingestion.api:app --reload --port 8000
